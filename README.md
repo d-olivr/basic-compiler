@@ -39,29 +39,29 @@ The implementation will follow the traditional compiler pipeline:
 <br>
 
 ## 📚 Project Roadmap
-- [ ] Explicit Declaration  
-- [ ] Static Scope  
-- [ ] Blocks  
-- [ ] Global Scope  
-- [ ] Primitive Data Types (int, float, boolean, string, char)  
-- [ ] Variable Initialization  
-- [ ] String Concatenation  
-- [ ] Arrays  
-- [ ] Array Initialization  
-- [ ] Expressions  
-- [ ] Conditional Expressions  
-- [ ] Input and Output Commands  
-- [ ] Loop Commands (for, while, do/while)  
-- [ ] Decision Commands (if, if/else, switch)  
-- [ ] Arithmetic Operators  
+- [x] Arithmetic Operators  
 - [ ] Relational Operators (producing boolean)  
 - [ ] Logical Operators (producing boolean)  
-- [ ] Compound Operators  
 - [ ] Unary Operators  
+- [ ] Expressions  
+- [ ] Primitive Data Types (int, float, boolean, string, char)  
+- [ ] Variable Initialization  
+- [ ] Explicit Declaration  
+- [ ] String Concatenation  
 - [ ] Type Conversion  
+- [ ] Global Scope  
+- [ ] Blocks  
+- [ ] Static Scope  
+- [ ] Decision Commands (if, if/else, switch)  
+- [ ] Conditional Expressions  
+- [ ] Loop Commands (for, while, do/while)  
 - [ ] Loop Control Mechanisms  
-- [ ] Error Detection  
+- [ ] Arrays  
+- [ ] Array Initialization  
+- [ ] Input and Output Commands  
+- [ ] Compound Operators  
 - [ ] Subprograms (Functions)  
+- [ ] Error Detection  
 
 <br>
 

@@ -1,0 +1,3 @@
+int I;
+float F;
+I = (int) F;
