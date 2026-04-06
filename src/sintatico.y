@@ -44,11 +44,12 @@ S 			: E
 			}
 			;
 
-E 			: E '+' E  /* uma expressão E pode ser formada por uma expressão seguida de um símbolo "+", seguida de outra expressão */
+E /* $$*/: E /* $1*/ '+' E /* $2* -> uma expressão E pode ser formada por uma expressão seguida de um símbolo "+", seguida de outra expressão */
 			{
-				$$.label = gentempcode(); /* gentempcode() cria um nome único de variável temporária */
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label  /* T1*/+ " + " + $3.label /*T3*/ + ";\n"; 
+				$$.label = gentempcode(); /* cria um nome único de variável temporária para o resultado dessa conta, vai trazer em traducao tudo q é necessário p/ fazer  aconta*/
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label /*T3*/ + /* .traducao -> traz todas as linhas de comandos necessarios p executar a conta */
+					" = " + $1.label  /* T1*/+ " + " + $3.label /*T2*/ + ";\n"; 
+					/* t3 = t2 + t1 */
 			}
 			|
 			 E '-' E {
@@ -68,6 +69,12 @@ E 			: E '+' E  /* uma expressão E pode ser formada por uma expressão seguida 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " * " + $3.label + ";\n";
 			}
+
+			| '(' E ')' { /* uma expressão (E) pode ser formada por um ( seguido de outra expressão E, seguido de um ) */
+				$$.label = $2.label; /* o resultado do parentese é o mesmo valor da expressao interna */
+				$$.traducao = $2.traducao; /* o código gerado é exatamente o mesmo da expressão interna	*/
+			}
+
 			| TK_NUM
 			{
 				$$.label = $1.label;

@@ -16,9 +16,13 @@ NUM {DIGITO}+
 
 {DELIM} 	{}
 
-/* Reconhecendo os operadores aritméticos */
+/* --------- Operadores aritméticos -------------*/
+
 /* ER: se leu + -> yytext = "+", retorna "+"*/
 [+\-*/] { return *yytext; } /* adicionando \ antes do operador "-" pois ele sozinho pode indicar intervalo */
+
+/* Parênteses */
+[()] { return *yytext; }
 
 {NUM}		{ yylval.label = yytext; return TK_NUM; }
 
