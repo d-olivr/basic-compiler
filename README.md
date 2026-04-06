@@ -40,13 +40,13 @@ The implementation will follow the traditional compiler pipeline:
 
 ## 📚 Project Roadmap
 - [x] Arithmetic Operators  
+- [ ] Explicit Declaration  
+- [ ] Primitive Data Types (int, float, boolean, string, char)  
 - [ ] Relational Operators (producing boolean)  
 - [ ] Logical Operators (producing boolean)  
 - [ ] Unary Operators  
 - [ ] Expressions  
-- [ ] Primitive Data Types (int, float, boolean, string, char)  
 - [ ] Variable Initialization  
-- [ ] Explicit Declaration  
 - [ ] String Concatenation  
 - [ ] Type Conversion  
 - [ ] Global Scope  
