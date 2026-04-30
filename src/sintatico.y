@@ -6,17 +6,15 @@
 #include <stack>
 
 #define YYSTYPE atributos
-
 using namespace std;
 
 int var_temp_qnt;
 int linha = 1;
 string codigo_gerado;
 
-struct atributos
-{
-	string label;
-	string traducao;
+struct atributos {
+    string label;
+    string traducao;
 	string tipo;
 };
 
@@ -61,9 +59,11 @@ int yylex(void);
 void yyerror(string);
 string gentempcode();
 
+/* ponteiro para o arquivo de onde o lexer vai ler */
 extern FILE *yyin;
 %}
 
+/* Novos tokens */
 %token TK_NUM
 %token TK_ID
 %token TK_TIPO_INT
@@ -316,12 +316,9 @@ E
 
 #include "lex.yy.c"
 
-int yyparse();
-
-string gentempcode()
-{
-	var_temp_qnt++;
-	return "t" + to_string(var_temp_qnt);
+string gentempcode() {
+    var_temp_qnt++;
+    return "t" + to_string(var_temp_qnt);
 }
 
 int main(int argc, char* argv[])

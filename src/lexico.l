@@ -17,9 +17,11 @@ ID {LETRA}({LETRA}|{DIGITO})*
 
 %%
 
-"\n"		{ linha++; }
+"\n"        { linha++; }
+{DELIM}     {}
 
-{DELIM} 	{}
+/* Palavra reservada: deve vir ANTES da regra de ID */
+"int"       { return TK_INT; }
 
 
 /* ────────── Palavras-chave de tipo ────────── */
@@ -65,5 +67,7 @@ ID {LETRA}({LETRA}|{DIGITO})*
 
 /* ────────── Erro ────────── */
 . { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
+
+.           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
 
 %%
