@@ -4,20 +4,25 @@
 #include <stdio.h>
 #include <map>
 #include <stack>
+#include <string.h> // Para usar strcpy e strcat se for necessário
 
-#define YYSTYPE atributos
-using namespace std;
-
-int var_temp_qnt;
-int linha = 1;
-string codigo_gerado;
-
+/* Estrutura pros atributos dos tokens e não-terminais */
 struct atributos {
-    string label;
-    string traducao;
-	string tipo;
+	std::string label;
+	std::string traducao;
+	std::string tipo;
 };
 
+#define YYSTYPE atributos
+
+using namespace std;
+
+/* Variáveis Globais */
+int var_temp_qnt = 0;
+extern int linha; // Vem do Flex
+string codigo_gerado;
+
+/* Estrutura da Tabela de Símbolos */
 struct Variavel {
 	string tipo;
 	string label;
@@ -25,12 +30,13 @@ struct Variavel {
 
 stack<map<string, Variavel>> pilhaEscopos;
 
+/* Funções de Escopo */
 void entrarEscopo() {
 	pilhaEscopos.push(map<string, Variavel>());
 }
 
 void sairEscopo() {
-	pilhaEscopos.pop();
+	if (!pilhaEscopos.empty()) pilhaEscopos.pop();
 }
 
 void declararVariavel(string nome, string tipo, string label) {
@@ -38,51 +44,43 @@ void declararVariavel(string nome, string tipo, string label) {
 }
 
 Variavel* buscarVariavel(string nome) {
-	auto copia = pilhaEscopos;
+	stack<map<string, Variavel>> copia = pilhaEscopos;
 	while (!copia.empty()) {
-		if (copia.top().count(nome)) return &pilhaEscopos.top()[nome];
+		if (copia.top().count(nome)) {
+			return &copia.top()[nome];
+		}
 		copia.pop();
 	}
 	return nullptr;
 }
 
+/* Lógica de Promoção de Tipos (Conversão Implícita) */
 string tipoResultante(string t1, string t2) {
 	if (t1 == t2) return t1;
-	if ((t1 == "float" && t2 == "int") ||
-		(t1 == "int"   && t2 == "float")) return "float";
-	if ((t1 == "bool"  && t2 == "int") ||
-		(t1 == "int"   && t2 == "bool")) return "int";
-	return "erro";
+	// Regra: float + int = float
+	if ((t1 == "float" && t2 == "int") || (t1 == "int" && t2 == "float")) return "float";
+	// Regra: int + bool = int
+	if ((t1 == "bool" && t2 == "int") || (t1 == "int" && t2 == "bool")) return "int";
+	return t1; // Simplificação para outros casos
 }
 
+/* Protótipos */
 int yylex(void);
 void yyerror(string);
 string gentempcode();
-
-/* ponteiro para o arquivo de onde o lexer vai ler */
 extern FILE *yyin;
 %}
 
-/* Novos tokens */
-%token TK_NUM
-%token TK_ID
-%token TK_TIPO_INT
-%token TK_TIPO_FLOAT
-%token TK_TIPO_BOOL
-%token TK_TIPO_CHAR
-%token TK_TRUE
-%token TK_FALSE
-%token TK_ATRIB
-%token TK_E
-%token TK_OU
-%token TK_NAO
-%token TK_IGUAL
-%token TK_DIFERENTE
-%token TK_MENOR_IGUAL
-%token TK_MAIOR_IGUAL
+/* Tokens vindo do Flex */
+%token TK_NUM TK_ID TK_LIT_CHAR
+%token TK_TIPO_INT TK_TIPO_FLOAT TK_TIPO_BOOL TK_TIPO_CHAR
+%token TK_TRUE TK_FALSE
+%token TK_ATRIB TK_E TK_OU TK_NAO
+%token TK_IGUAL TK_DIFERENTE TK_MENOR_IGUAL TK_MAIOR_IGUAL
 
 %start S
 
+/* Precedência para o Código Intermediário */
 %left TK_OU
 %left TK_E
 %left TK_IGUAL TK_DIFERENTE
@@ -93,257 +91,121 @@ extern FILE *yyin;
 
 %%
 
-/* ── S aceita uma sequência de comandos ── */
 S
 	: lista_comandos
 	{
-		codigo_gerado = "/*Compilador FOCA*/\n"
+		codigo_gerado = "/* Compilador Gerado */\n"
 						"#include <stdio.h>\n"
-						"int main(void) {\n";
-		codigo_gerado += $1.traducao;
-		codigo_gerado += "\treturn 0;\n";
-		codigo_gerado += "}\n";
+						"#include <stdbool.h>\n\n"
+						"int main(void) {\n" + $1.traducao + 
+						"\treturn 0;\n}\n";
 	}
 	;
 
-/* ── lista de comandos: declarações, atribuições ou expressões ── */
 lista_comandos
-	: lista_comandos declaracao
-	{
-		$$.traducao = $1.traducao + $2.traducao;
-	}
-	| lista_comandos atribuicao
-	{
-		$$.traducao = $1.traducao + $2.traducao;
-	}
-	| lista_comandos E ';'
-	{
-		$$.traducao = $1.traducao + $2.traducao;
-	}
-	| /* vazio */
-	{
-		$$.traducao = "";
-	}
+	: lista_comandos comando { $$.traducao = $1.traducao + $2.traducao; }
+	| { $$.traducao = ""; }
 	;
 
-/* ── tipos primitivos ── */
+comando
+	: declaracao
+	| atribuicao
+	| E ';' { $$.traducao = $1.traducao; }
+	;
+
 tipo
 	: TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
 	| TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
-	| TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; } /* bool vira int internamente */
+	| TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; }
 	| TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; }
 	;
 
-/* ── declaração de variável ── */
+/* Missão: Declaração e Conversão Explícita (Cast) */
 declaracao
 	: tipo TK_ID ';'
 	{
-		string varLabel = $2.label;
-		declararVariavel($2.label, $1.tipo, varLabel);
-		$$.traducao = "\t" + $1.label + " " + varLabel + ";\n";
-		$$.label = varLabel;
-		$$.tipo = $1.tipo;
+		declararVariavel($2.label, $1.tipo, $2.label);
+		$$.traducao = "\t" + $1.label + " " + $2.label + ";\n";
 	}
 	| tipo TK_ID TK_ATRIB E ';'
 	{
-		string varLabel = $2.label;
-		declararVariavel($2.label, $1.tipo, varLabel);
-		$$.traducao = $4.traducao +
-					  "\t" + $1.label + " " + varLabel + " = " + $4.label + ";\n";
-		$$.label = varLabel;
-		$$.tipo = $1.tipo;
+		declararVariavel($2.label, $1.tipo, $2.label);
+		// Aqui forçamos o cast para o tipo da variável declarada
+		$$.traducao = $4.traducao + "\t" + $1.label + " " + $2.label + " = (" + $1.label + ")" + $4.label + ";\n";
 	}
 	;
 
-/* ── atribuição de variável já declarada ── */
 atribuicao
 	: TK_ID TK_ATRIB E ';'
 	{
 		Variavel* v = buscarVariavel($1.label);
 		if (!v) yyerror("Variavel nao declarada: " + $1.label);
-		$$.traducao = $3.traducao +
-					  "\t" + $1.label + " = " + $3.label + ";\n";
-		$$.label = $1.label;
-		$$.tipo = v ? v->tipo : "";
+		string t = v ? v->tipo : "int";
+		// Cast implícito na atribuição
+		$$.traducao = $3.traducao + "\t" + $1.label + " = (" + t + ")" + $3.label + ";\n";
 	}
 	;
 
-/* ── expressões (aritméticas, lógicas, relacionais) ── */
+/* Missão: Expressões e Código Intermediário (Temporárias) */
 E
-	: E '+' E
-	{
-		$$.label = gentempcode();
+	: E '+' E { 
 		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " + " + $3.label + ";\n";
-	}
-	| E '-' E
-	{
 		$$.label = gentempcode();
+		$$.traducao = $1.traducao + $3.traducao + "\t" + $$.tipo + " " + $$.label + " = " + $1.label + " + " + $3.label + ";\n";
+	}
+	| E '-' E { 
 		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " - " + $3.label + ";\n";
-	}
-	| E '*' E
-	{
 		$$.label = gentempcode();
+		$$.traducao = $1.traducao + $3.traducao + "\t" + $$.tipo + " " + $$.label + " = " + $1.label + " - " + $3.label + ";\n";
+	}
+	| E '*' E { 
 		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " * " + $3.label + ";\n";
-	}
-	| E '/' E
-	{
 		$$.label = gentempcode();
+		$$.traducao = $1.traducao + $3.traducao + "\t" + $$.tipo + " " + $$.label + " = " + $1.label + " * " + $3.label + ";\n";
+	}
+	| E '/' E { 
 		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " / " + $3.label + ";\n";
-	}
-	/* ── lógicos ── */
-	| E TK_E E
-	{
 		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " && " + $3.label + ";\n";
+		$$.traducao = $1.traducao + $3.traducao + "\t" + $$.tipo + " " + $$.label + " = " + $1.label + " / " + $3.label + ";\n";
 	}
-	| E TK_OU E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " || " + $3.label + ";\n";
+	| TK_NUM { 
+		$$.label = $1.label; 
+		$$.tipo = $1.tipo; // Vem do Flex já com "int" ou "float"
+		$$.traducao = ""; 
 	}
-	| TK_NAO E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $2.traducao +
-					  "\tint " + $$.label + " = !" + $2.label + ";\n";
-	}
-	/* ── relacionais ── */
-	| E TK_IGUAL E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " == " + $3.label + ";\n";
-	}
-	| E TK_DIFERENTE E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " != " + $3.label + ";\n";
-	}
-	| E '<' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " < " + $3.label + ";\n";
-	}
-	| E '>' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " > " + $3.label + ";\n";
-	}
-	| E TK_MENOR_IGUAL E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " <= " + $3.label + ";\n";
-	}
-	| E TK_MAIOR_IGUAL E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " >= " + $3.label + ";\n";
-	}
-	/* ── parênteses ── */
-	| '(' E ')'
-	{
-		$$.label = $2.label;
-		$$.tipo = $2.tipo;
-		$$.traducao = $2.traducao;
-	}
-	/* ── valores literais ── */
-	| TK_NUM
-	{
-		$$.label = $1.label;
-		$$.tipo = $1.tipo; /* o lexico.l deve preencher o tipo: "int" ou "float" */
-		$$.traducao = "";
-	}
-	| TK_TRUE
-	{
-		$$.label = "1";
-		$$.tipo = "bool";
-		$$.traducao = "";
-	}
-	| TK_FALSE
-	{
-		$$.label = "0";
-		$$.tipo = "bool";
-		$$.traducao = "";
-	}
-	/* ── variável ── */
-	| TK_ID
-	{
+	| TK_ID {
 		Variavel* v = buscarVariavel($1.label);
 		if (!v) yyerror("Variavel nao declarada: " + $1.label);
 		$$.label = $1.label;
-		$$.tipo = v ? v->tipo : "";
+		$$.tipo = v ? v->tipo : "int";
 		$$.traducao = "";
 	}
+	| TK_LIT_CHAR {
+		$$.label = $1.label;
+		$$.tipo = "char";
+		$$.traducao = "";
+	}
+	| '(' E ')' { $$ = $2; }
 	;
 
 %%
 
+/* Incluindo o código gerado pelo Flex */
 #include "lex.yy.c"
 
 string gentempcode() {
-    var_temp_qnt++;
-    return "t" + to_string(var_temp_qnt);
+	return "t" + to_string(var_temp_qnt++);
 }
 
-int main(int argc, char* argv[])
-{
-	var_temp_qnt = 0;
-	entrarEscopo();
-
-	if (argc > 1)
-	{
-		yyin = fopen(argv[1], "r");
-		if (!yyin)
-		{
-			perror("Erro ao abrir arquivo");
-			return 1;
-		}
-	}
-
-	if (yyparse() == 0)
-		cout << codigo_gerado;
-
-	sairEscopo();
-	return 0;
-}
-
-void yyerror(string MSG)
-{
+void yyerror(string MSG) {
 	cerr << "Erro na linha " << linha << ": " << MSG << endl;
+}
+
+int main(int argc, char* argv[]) {
+	entrarEscopo();
+	if (argc > 1) yyin = fopen(argv[1], "r");
+	
+	if (yyparse() == 0) cout << codigo_gerado << endl;
+	
+	return 0;
 }

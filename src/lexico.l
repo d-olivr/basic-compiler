@@ -1,73 +1,120 @@
 %{
-#include <string>
-#include "sintatico.tab.h" /* gerado pelo yacc, contém os defines dos tokens */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+/* A definição de YYSTYPE e o include do h devem vir antes do lex.yy.c */
+#include "sintatico.tab.h"
+
+int linha = 1;
+
+/* Função manual para duplicar strings sem usar strlen */
+/* Usa malloc e strcpy (permitidos) e o yyleng do Flex */
+
+char* criar_string(const char* s, int tam) {
+    char* novo = (char*) malloc(tam + 1);
+    if (novo != NULL) {
+        strcpy(novo, s);
+    }
+    return novo;
+}
 %}
 
 %option noyywrap
 
-ESPACO [ \t]
-DIGITO [0-9]
-LETRA [a-zA-Z_]
+/* Definições de nomes para as Expressões Regulares */
+ESPACO    [ \t\r]
+DIGITO    [0-9]
+LETRA     [a-zA-Z_]
 
-DELIM {ESPACO}+
-NUM_INT {DIGITO}+
+NUM_INT   {DIGITO}+
 NUM_FLOAT {DIGITO}+"."{DIGITO}+
-ID {LETRA}({LETRA}|{DIGITO})*
+ID        {LETRA}({LETRA}|{DIGITO})*
+LIT_CHAR  "'"({LETRA}|{DIGITO}|[ !@#$%^&*()])"'"
 
 %%
 
-"\n"        { linha++; }
-{DELIM}     {}
+    /* --- Tratamento de Quebras de Linha e Espaços --- */
+"\n"          { linha++; }
+{ESPACO}+     { /* ignora espaços */ }
 
-/* Palavra reservada: deve vir ANTES da regra de ID */
-"int"       { return TK_INT; }
+    /* --- Comentários --- */
+"//".*        { /* ignora linha única */ }
+"/*"          { 
+                int c;
+                while ((c = input()) != 0) {
+                    if (c == '\n') linha++;
+                    else if (c == '*') {
+                        if ((c = input()) == '/') break;
+                        else unput(c);
+                    }
+                }
+              }
 
+    /* --- Palavras-chave de tipo --- */
+"int"         { return TK_TIPO_INT; }
+"float"       { return TK_TIPO_FLOAT; }
+"char"        { return TK_TIPO_CHAR; }
+"bool"        { return TK_TIPO_BOOL; }
 
-/* ────────── Palavras-chave de tipo ────────── */
-/* ficam ANTES da regra de ID, senão "int" seria reconhecido como identificador */
+    /* --- Literais e Identificadores --- */
+"true"        { 
+                yylval.label = criar_string("true", 4); 
+                yylval.tipo = criar_string("bool", 4); 
+                return TK_TRUE; 
+              }
+"false"       { 
+                yylval.label = criar_string("false", 5); 
+                yylval.tipo = criar_string("bool", 4); 
+                return TK_FALSE; 
+              }
 
-"int"       { return TK_TIPO_INT; }
-"float"     { return TK_TIPO_FLOAT; }
-"char"      { return TK_TIPO_CHAR; }
-"bool"      { return TK_TIPO_BOOL; }
-"true"      { yylval.label = "1"; yylval.tipo = "bool"; return TK_TRUE; }
-"false"     { yylval.label = "0"; yylval.tipo = "bool"; return TK_FALSE; }
+{LIT_CHAR}    { 
+                yylval.label = criar_string(yytext, yyleng); 
+                yylval.tipo = criar_string("char", 4); 
+                return TK_LIT_CHAR; 
+              }
 
+{NUM_FLOAT}   { 
+                yylval.label = criar_string(yytext, yyleng); 
+                yylval.tipo = criar_string("float", 5); 
+                return TK_NUM; 
+              }
+{NUM_INT}     { 
+                yylval.label = criar_string(yytext, yyleng); 
+                yylval.tipo = criar_string("int", 3); 
+                return TK_NUM; 
+              }
 
-/* ────────── Identificadores ────────── */
-{ID}        { yylval.label = yytext; return TK_ID; }
+{ID}          { 
+                yylval.label = criar_string(yytext, yyleng); 
+                return TK_ID; 
+              }
 
-/* --------- Operadores aritméticos -------------*/
+    /* --- Operadores e Pontuação --- */
+"+"           { return '+'; }
+"-"           { return '-'; }
+"*"           { return '*'; }
+"/"           { return '/'; }
 
-{NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; }
-{NUM_INT}   { yylval.label = yytext; yylval.tipo = "int";   return TK_NUM; }
+"&&"          { return TK_E; }
+"||"          { return TK_OU; }
+"!"           { return TK_NAO; }
 
-/* ER: se leu + -> yytext = "+", retorna "+"*/
-[+\-*/] { return *yytext; } /* adicionando \ antes do operador "-" pois ele sozinho pode indicar intervalo */
+"=="          { return TK_IGUAL; }
+"!="          { return TK_DIFERENTE; }
+"<="          { return TK_MENOR_IGUAL; }
+">="          { return TK_MAIOR_IGUAL; }
+"<"           { return '<'; }
+">"           { return '>'; }
 
-/* ────────── Operadores lógicos ────────── */
-"&&" { return TK_E; }
-"||" { return TK_OU; }
-"!" { return TK_NAO; }
+"="           { return TK_ATRIB; }
+"("           { return '('; }
+")"           { return ')'; }
+":"           { return ':'; }
+";"           { return ';'; }
 
-/* ────────── Operadores relacionais ────────── */
-"==" { return TK_IGUAL; }
-"!=" { return TK_DIFERENTE; }
-"<=" { return TK_MENOR_IGUAL; }
-">=" { return TK_MAIOR_IGUAL; }
-[<>] { return *yytext; }
-
-/* ────────── Atribuição ────────── */
-"=" { return TK_ATRIB; }
-
-/* ────────── Pontuação ────────── */
-
-[():] { return *yytext; }
-
-/* ────────── Erro ────────── */
-. { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
-
-.           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
+    /* --- Erro Léxico --- */
+.             { fprintf(stderr, "Erro lexico na linha %d: caractere [%s] invalido\n", linha, yytext); }
 
 %%
