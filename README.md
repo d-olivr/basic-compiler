@@ -17,10 +17,30 @@ This approach allows us to focus on the compilation process itself while leverag
 <br>
 
 ## 🛠 Technical Stack
-* **Programming Language:** [TBD]
-* **Target Language:** C  
-* **Parsing Strategy:** TBD 
+* **Programming Language:** ![Lex](https://img.shields.io/badge/Lex-F06632?style=flat&logo=gnu&logoColor=white)![Yacc](https://img.shields.io/badge/Yacc-944058?style=flat&logo=gnu&logoColor=white)
+* **Target Language:** ![C](https://img.shields.io/badge/C-A8B9CC?style=flat&logo=c&logoColor=white)
 * **Tools/Libraries:** TBD  
+
+<br>
+
+## 📚 Project Roadmap
+
+### Phase I - Specification
+* [ ] Expressions
+* [x] Types
+    * [x] Boolean
+    * [x] Int
+    * [x] Float
+    * [x] Char
+* [x] Operators
+    * [x] Logical
+    * [x] Arithmetic
+    * [x] Relational
+* [ ] Variables
+* [ ] Variable assignment
+* [ ] Conversion
+    * [ ] Implicit
+    * [ ] Explicit
 
 <br>
 
@@ -34,34 +54,6 @@ The implementation will follow the traditional compiler pipeline:
 * **Intermediate Code Generation:** Translation to C  
 * **Error Handling:** Detection and reporting of compilation errors  
 
-
-
-<br>
-
-## 📚 Project Roadmap
-- [x] Arithmetic Operators  
-- [ ] Explicit Declaration  
-- [ ] Primitive Data Types (int, float, boolean, string, char)  
-- [ ] Relational Operators (producing boolean)  
-- [ ] Logical Operators (producing boolean)  
-- [ ] Unary Operators  
-- [ ] Expressions  
-- [ ] Variable Initialization  
-- [ ] String Concatenation  
-- [ ] Type Conversion  
-- [ ] Global Scope  
-- [ ] Blocks  
-- [ ] Static Scope  
-- [ ] Decision Commands (if, if/else, switch)  
-- [ ] Conditional Expressions  
-- [ ] Loop Commands (for, while, do/while)  
-- [ ] Loop Control Mechanisms  
-- [ ] Arrays  
-- [ ] Array Initialization  
-- [ ] Input and Output Commands  
-- [ ] Compound Operators  
-- [ ] Subprograms (Functions)  
-- [ ] Error Detection  
 
 <br>
 
