@@ -1,9 +1,22 @@
 %{
 #include <string>
 #include <stdio.h>
+
+/* 1. Definimos a struct exatamente como no sintatico.y */
+struct atributos {
+    std::string label;
+    std::string traducao;
+    std::string tipo;
+};
+
+/* 2. Avisamos que o yylval usa essa struct */
+#define YYSTYPE atributos
+
+/* 3. Incluimos o header do Bison */
 #include "y.tab.h"
 
-int linha = 1;
+/* 4. Usamos extern para a variavel que ja existe no sintatico.y */
+extern int linha;
 %}
 
 %option noyywrap
