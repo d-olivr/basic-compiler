@@ -5,10 +5,6 @@ This project consists of the development of a **basic compiler** as part of the 
 
 <br>
 
-> ⚠️ **[TO BE DEFINED]** *Some sections that follow will be updated throughout the development.*
-
-<br>
-
 ## ⚙️ How does it work?
 The compiler will process source code written in a custom language and translate it into **C code**, which can then be compiled using a standard C compiler such as the **gcc (GNU Compiler Collection)**
 
@@ -19,7 +15,7 @@ This approach allows us to focus on the compilation process itself while leverag
 ## 🛠 Technical Stack
 * **Programming Language:** ![Lex](https://img.shields.io/badge/Lex-F06632?style=flat&logo=gnu&logoColor=white)![Yacc](https://img.shields.io/badge/Yacc-944058?style=flat&logo=gnu&logoColor=white)
 * **Target Language:** ![C](https://img.shields.io/badge/C-A8B9CC?style=flat&logo=c&logoColor=white)
-* **Tools/Libraries:** TBD  
+* **Tools/Libraries used:** `flex`, `bison`, `g++`, [`wsl`](https://learn.microsoft.com/windows/wsl/install).
 
 <br>
 
@@ -36,10 +32,10 @@ This approach allows us to focus on the compilation process itself while leverag
     * [x] Logical
     * [x] Arithmetic
     * [x] Relational
-* [ ] Variables
+* [x] Variables
 * [ ] Variable assignment
 * [ ] Conversion
-    * [ ] Implicit
+    * [x] Implicit
     * [ ] Explicit
 
 <br>
