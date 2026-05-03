@@ -11,6 +11,7 @@ using namespace std;
 int var_temp_qnt;
 int linha = 1;
 string codigo_gerado;
+string vars_temporarias = ""; // variável de texto para guardar as variáveis temporárias
 
 struct atributos {
     string label;
@@ -29,7 +30,7 @@ declarada no escopo ao seu tipo e rótulo (label) */
 stack<map<string, Variavel>> pilhaEscopos;
 
 /* funções para manipular a pilha de escopos
-sao usada para controlar as variáveis declaradas em cada escopo do programa (funcoes, blocos, etc.) */
+sao usadas para controlar as variáveis declaradas em cada escopo do programa (funcoes, blocos, etc.) */
 void entrarEscopo() {
 	pilhaEscopos.push(map<string, Variavel>());
 }
@@ -102,18 +103,27 @@ extern FILE *yyin;
 /* a regra inicial da gramática é uma lista de comandos, que pode ser vazia 
 ou conter várias declarações, atribuições ou expressões */
 S
-	: lista_comandos
-	{
-		codigo_gerado = "__________________________\n\n"
-						"★  MIKU COMPILER (^_^)  ★\n"
-						"__________________________\n\n"
-						"#include <stdio.h>\n"
-						"int main(void) {\n";
-		codigo_gerado += $1.traducao;
-		codigo_gerado += "\treturn 0;\n";
-		codigo_gerado += "}\n";
-	}
-	;
+    : lista_comandos
+    {
+        codigo_gerado = "__________________________\n\n"
+                        "★  MIKU COMPILER (^_^)  ★\n"
+                        "__________________________\n\n"
+                        "#include <stdio.h>\n"
+                        "int main(void) {\n";
+                        
+        /* 1. Injeta todas as declarações (int t1; int x;) no topo do main */
+        codigo_gerado += vars_temporarias; 
+        
+        /* 2. Dá uma quebra de linha em branco para separar as declarações do resto do código */
+        codigo_gerado += "\n";
+        
+        /* 3. Injeta as atribuições e expressões (t1 = 1; x = t1 + 2;) */
+        codigo_gerado += $1.traducao;
+        
+        codigo_gerado += "\treturn 0;\n";
+        codigo_gerado += "}\n";
+    }
+    ;
 
 /* -------------------- LISTA DE COMANDOS -------------------- */
 lista_comandos
@@ -137,190 +147,207 @@ lista_comandos
 
 /* TIPOS BÁSICOS */
 tipo
-	: TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
-	| TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
-	| TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; } /* bool vira int internamente */
-	| TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; }
-	;
+    : TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
+    | TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
+    | TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; } /* bool vira int internamente */
+    | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; }
+    ;
 
 /* DECLARAÇÃO DE VARIÁVEL (com ou sem inicialização) */
 declaracao
-	: tipo TK_ID ';'
-	{
-		string varLabel = $2.label;
-		declararVariavel($2.label, $1.tipo, varLabel);
-		$$.traducao = "\t" + $1.label + " " + varLabel + ";\n";
-		$$.label = varLabel;
-		$$.tipo = $1.tipo;
-	}
-	| tipo TK_ID TK_ATRIB E ';'
-	{
-		string varLabel = $2.label;
-		declararVariavel($2.label, $1.tipo, varLabel);
-		$$.traducao = $4.traducao +
-					  "\t" + $1.label + " " + varLabel + " = " + $4.label + ";\n";
-		$$.label = varLabel;
-		$$.tipo = $1.tipo;
-	}
-	;
+    : tipo TK_ID ';'
+    {
+        string varLabel = $2.label;
+        declararVariavel($2.label, $1.tipo, varLabel);
+        
+        // 1. Manda a declaração (ex: "int x;") para o topo do arquivo
+        vars_temporarias += "\t" + $1.label + " " + varLabel + ";\n";
+        
+        // 2. Como é só declaração, a tradução aqui embaixo fica vazia
+        $$.traducao = "";
+        
+        $$.label = varLabel;
+        $$.tipo = $1.tipo;
+    }
+    | tipo TK_ID TK_ATRIB E ';'
+    {
+        string varLabel = $2.label;
+        declararVariavel($2.label, $1.tipo, varLabel);
+        
+        // 1. Manda a declaração (ex: "int x;") para o topo
+        vars_temporarias += "\t" + $1.label + " " + varLabel + ";\n";
+        
+        // 2. A tradução faz apenas a atribuição (ex: "x = 5;")
+        $$.traducao = $4.traducao +
+                      "\t" + varLabel + " = " + $4.label + ";\n";
+                      
+        $$.label = varLabel;
+        $$.tipo = $1.tipo;
+    }
+    ;
 
 /* ATRIBUIÇÃO DE VALOR A UMA VARIÁVEL JÁ DECLARADA */
 atribuicao
-	: TK_ID TK_ATRIB E ';'
-	{
-		Variavel* v = buscarVariavel($1.label);
-		if (!v) yyerror("Variavel nao declarada: " + $1.label);
-		$$.traducao = $3.traducao +
-					  "\t" + $1.label + " = " + $3.label + ";\n";
-		$$.label = $1.label;
-		$$.tipo = v ? v->tipo : "";
-	}
-	;
-
+    : TK_ID TK_ATRIB E ';'
+    {
+        Variavel* v = buscarVariavel($1.label);
+        if (!v) yyerror("Variavel nao declarada: " + $1.label);
+        
+        // Atribuição já está perfeita, pois não cria variável nova
+        $$.traducao = $3.traducao +
+                      "\t" + $1.label + " = " + $3.label + ";\n";
+        $$.label = $1.label;
+        $$.tipo = v ? v->tipo : "";
+    }
+    ;
 /* -------------------- EXPRESSOES --------------------*/
 /* ARITMETICAS */
 E
-	: E '+' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " + " + $3.label + ";\n";
-	}
-	| E '-' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " - " + $3.label + ";\n";
-	}
-	| E '*' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " * " + $3.label + ";\n";
-	}
-	| E '/' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = tipoResultante($1.tipo, $3.tipo);
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\t" + $$.tipo + " " + $$.label +
-					  " = " + $1.label + " / " + $3.label + ";\n";
-	}
-	/* LOGICAS */
-	| E TK_E E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " && " + $3.label + ";\n";
-	}
-	| E TK_OU E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " || " + $3.label + ";\n";
-	}
-	| TK_NAO E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $2.traducao +
-					  "\tint " + $$.label + " = !" + $2.label + ";\n";
-	}
-	/* RELACIONAIS */
-	| E TK_IGUAL E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " == " + $3.label + ";\n";
-	}
-	| E TK_DIFERENTE E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " != " + $3.label + ";\n";
-	}
-	| E '<' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " < " + $3.label + ";\n";
-	}
-	| E '>' E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " > " + $3.label + ";\n";
-	}
-	| E TK_MENOR_IGUAL E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " <= " + $3.label + ";\n";
-	}
-	| E TK_MAIOR_IGUAL E
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = $1.traducao + $3.traducao +
-					  "\tint " + $$.label +
-					  " = " + $1.label + " >= " + $3.label + ";\n";
-	}
-	/* PARENTESIS */
-	| '(' E ')'
-	{
-		$$.label = $2.label;
-		$$.tipo = $2.tipo;
-		$$.traducao = $2.traducao;
-	}
-	/* VALORES LITERAIS */
-	| TK_NUM
-	{
-    	$$.label = gentempcode();/* gera t1, t2, etc. */
-		$$.tipo = $1.tipo;
-		$$.traducao = "\t" + $1.tipo + " " + $$.label + " = " + $1.label + ";\n";
-	}
-	| TK_TRUE
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = "\tint " + $$.label + " = 1;\n";
-	}
-	| TK_FALSE
-	{
-		$$.label = gentempcode();
-		$$.tipo = "bool";
-		$$.traducao = "\tint " + $$.label + " = 0;\n";
-	}
-	/* VARIÁVEL */
-	| TK_ID
-	{
-		Variavel* v = buscarVariavel($1.label);
-		if (!v) yyerror("Variavel nao declarada: " + $1.label);
-		$$.label = $1.label;
-		$$.tipo = v ? v->tipo : "";
-		$$.traducao = "";
-	}
-	;
+    : E '+' E
+    {
+        $$.label = gentempcode();
+        $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " + " + $3.label + ";\n";
+    }
+    | E '-' E
+    {
+        $$.label = gentempcode();
+        $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " - " + $3.label + ";\n";
+    }
+    | E '*' E
+    {
+        $$.label = gentempcode();
+        $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " * " + $3.label + ";\n";
+    }
+    | E '/' E
+    {
+        $$.label = gentempcode();
+        $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " / " + $3.label + ";\n";
+    }
+    /* LOGICAS */
+    | E TK_E E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n";
+    }
+    | E TK_OU E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n";
+    }
+    | TK_NAO E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $2.traducao +
+                      "\t" + $$.label + " = !" + $2.label + ";\n";
+    }
+    /* RELACIONAIS */
+    | E TK_IGUAL E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n";
+    }
+    | E TK_DIFERENTE E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n";
+    }
+    | E '<' E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n";
+    }
+    | E '>' E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n";
+    }
+    | E TK_MENOR_IGUAL E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n";
+    }
+    | E TK_MAIOR_IGUAL E
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao +
+                      "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n";
+    }
+    /* PARENTESIS */
+    | '(' E ')'
+    {
+        $$.label = $2.label;
+        $$.tipo = $2.tipo;
+        $$.traducao = $2.traducao;
+    }
+    /* VALORES LITERAIS */
+    | TK_NUM
+    {
+        $$.label = gentempcode();/* gera t1, t2, etc. */
+        $$.tipo = $1.tipo;
+        vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n";
+        $$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+    }
+    | TK_TRUE
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = "\t" + $$.label + " = 1;\n";
+    }
+    | TK_FALSE
+    {
+        $$.label = gentempcode();
+        $$.tipo = "bool";
+        vars_temporarias += "\tint " + $$.label + ";\n";
+        $$.traducao = "\t" + $$.label + " = 0;\n";
+    }
+    /* VARIÁVEL */
+    | TK_ID
+    {
+        Variavel* v = buscarVariavel($1.label);
+        if (!v) yyerror("Variavel nao declarada: " + $1.label);
+        $$.label = $1.label;
+        $$.tipo = v ? v->tipo : "";
+        $$.traducao = "";
+    }
+    ;
 
 %%
 
