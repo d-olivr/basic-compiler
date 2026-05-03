@@ -55,6 +55,8 @@ make verify FILE=examples/03_temp_declaration.foca  # compiles and runs the gene
 make clean                                          # cleans generated files
 ```
 
+<br>
+
 ## 🧩 Compiler Structure
 The implementation will follow the traditional compiler pipeline:
 
