@@ -44,6 +44,16 @@ This approach allows us to focus on the compilation process itself while leverag
 
 <br>
 
+## 🖥️ Execution
+
+```
+make                                                # compiles the compiler
+make run FILE=examples/01_sum.foca                  # runs an example
+make test                                           # runs all tests
+make test-01                                        # tests stage 01
+make verify FILE=examples/03_temp_declaration.foca  # compiles and runs the generated C code
+make clean                                          # cleans generated files
+```
 
 ## 🧩 Compiler Structure
 The implementation will follow the traditional compiler pipeline:
