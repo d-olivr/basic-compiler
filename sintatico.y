@@ -22,9 +22,14 @@ struct Variavel {
 	string tipo;
 	string label;
 };
-
+/* ---------- ESTRUTURA DE VARIÁVEIS E PILHA DE ESCOPO ---------- */
+/* a pilha de escopos é uma estrutura de dados que armazena um mapa para 
+cada escopo do programa, onde o mapa associa o nome de cada variável 
+declarada no escopo ao seu tipo e rótulo (label) */
 stack<map<string, Variavel>> pilhaEscopos;
 
+/* funções para manipular a pilha de escopos
+sao usada para controlar as variáveis declaradas em cada escopo do programa (funcoes, blocos, etc.) */
 void entrarEscopo() {
 	pilhaEscopos.push(map<string, Variavel>());
 }
@@ -33,10 +38,12 @@ void sairEscopo() {
 	pilhaEscopos.pop();
 }
 
+/* função para declarar uma variável no escopo atual (topo da pilha), associando seu nome a um tipo e um rótulo (label) que será usado na geração de código */
 void declararVariavel(string nome, string tipo, string label) {
 	pilhaEscopos.top()[nome] = {tipo, label};
 }
 
+/* função para buscar uma variável na pilha de escopos, começando do escopo mais interno (topo da pilha) e indo para os mais externos */
 Variavel* buscarVariavel(string nome) {
 	auto copia = pilhaEscopos;
 	while (!copia.empty()) {
@@ -45,7 +52,9 @@ Variavel* buscarVariavel(string nome) {
 	}
 	return nullptr;
 }
+/* -------------------- FUNCÕES AUXILIARES -------------------- */
 
+/* conversão de tipos */
 string tipoResultante(string t1, string t2) {
 	if (t1 == t2) return t1;
 	if ((t1 == "float" && t2 == "int") ||
@@ -54,16 +63,14 @@ string tipoResultante(string t1, string t2) {
 		(t1 == "int"   && t2 == "bool")) return "int";
 	return "erro";
 }
-
+/* ---------- FUNCÕES AUXILIARES PARA O PARSER ---------- */
 int yylex(void);
 void yyerror(string);
-string gentempcode();
+string gentempcode();/* função para gerar um rótulo (label) temporário, que é usado para armazenar o resultado de expressões intermediárias*/
 
 /* ponteiro para o arquivo de onde o lexer vai ler */
 extern FILE *yyin;
 %}
-
-/* Novos tokens */
 %token TK_NUM
 %token TK_ID
 %token TK_TIPO_INT
@@ -82,7 +89,6 @@ extern FILE *yyin;
 %token TK_MAIOR_IGUAL
 
 %start S
-
 %left TK_OU
 %left TK_E
 %left TK_IGUAL TK_DIFERENTE
@@ -92,12 +98,15 @@ extern FILE *yyin;
 %right TK_NAO
 
 %%
-
-/* ── S aceita uma sequência de comandos ── */
+/* -------------------------------- REGRAS DE PRODUÇÃO ---------------------------- */
+/* a regra inicial da gramática é uma lista de comandos, que pode ser vazia 
+ou conter várias declarações, atribuições ou expressões */
 S
 	: lista_comandos
 	{
-		codigo_gerado = "/*Compilador FOCA*/\n"
+		codigo_gerado = "__________________________\n\n"
+						"★  MIKU COMPILER (^_^)  ★\n"
+						"__________________________\n\n"
 						"#include <stdio.h>\n"
 						"int main(void) {\n";
 		codigo_gerado += $1.traducao;
@@ -106,27 +115,27 @@ S
 	}
 	;
 
-/* ── lista de comandos: declarações, atribuições ou expressões ── */
+/* -------------------- LISTA DE COMANDOS -------------------- */
 lista_comandos
 	: lista_comandos declaracao
 	{
-		$$.traducao = $1.traducao + $2.traducao;
+		$$.traducao = $1.traducao + $2.traducao;/* a tradução de uma lista de comandos é a concatenação das traduções de cada comando */
 	}
-	| lista_comandos atribuicao
+	| lista_comandos atribuicao/* atribuição é um tipo de comando, então pode aparecer em uma lista de comandos */
 	{
 		$$.traducao = $1.traducao + $2.traducao;
 	}
-	| lista_comandos E ';'
+	| lista_comandos E ';'/* uma expressão seguida de ponto e vírgula também eh um comando, então pode aparecer em uma lista de comandos */
 	{
 		$$.traducao = $1.traducao + $2.traducao;
 	}
-	| /* vazio */
+	| /* a lista de comandos pode ser vazia, e nesse caso a tradução é uma string vazia */
 	{
 		$$.traducao = "";
 	}
 	;
 
-/* ── tipos primitivos ── */
+/* TIPOS BÁSICOS */
 tipo
 	: TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
 	| TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
@@ -134,7 +143,7 @@ tipo
 	| TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; }
 	;
 
-/* ── declaração de variável ── */
+/* DECLARAÇÃO DE VARIÁVEL (com ou sem inicialização) */
 declaracao
 	: tipo TK_ID ';'
 	{
@@ -155,7 +164,7 @@ declaracao
 	}
 	;
 
-/* ── atribuição de variável já declarada ── */
+/* ATRIBUIÇÃO DE VALOR A UMA VARIÁVEL JÁ DECLARADA */
 atribuicao
 	: TK_ID TK_ATRIB E ';'
 	{
@@ -168,7 +177,8 @@ atribuicao
 	}
 	;
 
-/* ── expressões (aritméticas, lógicas, relacionais) ── */
+/* -------------------- EXPRESSOES --------------------*/
+/* ARITMETICAS */
 E
 	: E '+' E
 	{
@@ -202,7 +212,7 @@ E
 					  "\t" + $$.tipo + " " + $$.label +
 					  " = " + $1.label + " / " + $3.label + ";\n";
 	}
-	/* ── lógicos ── */
+	/* LOGICAS */
 	| E TK_E E
 	{
 		$$.label = gentempcode();
@@ -226,7 +236,7 @@ E
 		$$.traducao = $2.traducao +
 					  "\tint " + $$.label + " = !" + $2.label + ";\n";
 	}
-	/* ── relacionais ── */
+	/* RELACIONAIS */
 	| E TK_IGUAL E
 	{
 		$$.label = gentempcode();
@@ -275,14 +285,14 @@ E
 					  "\tint " + $$.label +
 					  " = " + $1.label + " >= " + $3.label + ";\n";
 	}
-	/* ── parênteses ── */
+	/* PARENTESIS */
 	| '(' E ')'
 	{
 		$$.label = $2.label;
 		$$.tipo = $2.tipo;
 		$$.traducao = $2.traducao;
 	}
-	/* ── valores literais ── */
+	/* VALORES LITERAIS */
 	| TK_NUM
 	{
 		$$.label = $1.label;
@@ -301,7 +311,7 @@ E
 		$$.tipo = "bool";
 		$$.traducao = "";
 	}
-	/* ── variável ── */
+	/* VARIÁVEL */
 	| TK_ID
 	{
 		Variavel* v = buscarVariavel($1.label);
@@ -314,20 +324,23 @@ E
 
 %%
 
-
+/* função para gerar um rótulo (label) temporário, que é usado para armazenar o resultado de expressões intermediárias */
 string gentempcode() {
     var_temp_qnt++;
     return "t" + to_string(var_temp_qnt);
 }
-
+/* ---------- FUNÇÃO PRINCIPAL ---------- 
+- inicializa a pilha de escopos
+- lê o arquivo de entrada (se fornecido)
+- chama o parser */
 int main(int argc, char* argv[])
 {
 	var_temp_qnt = 0;
 	entrarEscopo();
 
-	if (argc > 1)
+	if (argc > 1)/* se um nome de arquivo for fornecido como argumento, o lexer vai ler desse arquivo em vez de ler da entrada padrão */
 	{
-		yyin = fopen(argv[1], "r");
+		yyin = fopen(argv[1], "r");/* nome do arquivo é passado como argumento */
 		if (!yyin)
 		{
 			perror("Erro ao abrir arquivo");
@@ -335,13 +348,13 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (yyparse() == 0)
-		cout << codigo_gerado;
+	if (yyparse() == 0)/* yyparse() retorna 0 se a análise sintática for bem-sucedida ou diferente de zero se houver um erro de sintaxe */
+		cout << codigo_gerado;/* se a análise sintática for bem-sucedida, o código gerado vai ser impresso*/
 
 	sairEscopo();
 	return 0;
 }
-
+    /* -------------------- TRATAMENTO DE ERROS SINTATICOS -------------------- */
 void yyerror(string MSG)
 {
 	cerr << "Erro na linha " << linha << ": " << MSG << endl;
