@@ -295,21 +295,21 @@ E
 	/* VALORES LITERAIS */
 	| TK_NUM
 	{
-		$$.label = $1.label;
-		$$.tipo = $1.tipo; /* o lexico.l deve preencher o tipo: "int" ou "float" */
-		$$.traducao = "";
+    	$$.label = gentempcode();/* gera t1, t2, etc. */
+		$$.tipo = $1.tipo;
+		$$.traducao = "\t" + $1.tipo + " " + $$.label + " = " + $1.label + ";\n";
 	}
 	| TK_TRUE
 	{
-		$$.label = "1";
+		$$.label = gentempcode();
 		$$.tipo = "bool";
-		$$.traducao = "";
+		$$.traducao = "\tint " + $$.label + " = 1;\n";
 	}
 	| TK_FALSE
 	{
-		$$.label = "0";
+		$$.label = gentempcode();
 		$$.tipo = "bool";
-		$$.traducao = "";
+		$$.traducao = "\tint " + $$.label + " = 0;\n";
 	}
 	/* VARIÁVEL */
 	| TK_ID
