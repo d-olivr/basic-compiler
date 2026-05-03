@@ -10,7 +10,7 @@ all: glf translate
 compile: glf
 
 glf: y.tab.c lex.yy.c
-		g++ $(CXXFLAGS) -o glf y.tab.c
+		g++ $(CXXFLAGS) -o glf y.tab.c lex.yy.c
 
 lex.yy.c: lexico.l
 		$(SCANNER) $(SCANNER_PARAMS)
