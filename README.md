@@ -22,7 +22,7 @@ This approach allows us to focus on the compilation process itself while leverag
 ## 📚 Project Roadmap
 
 ### Phase I - Specification
-* [ ] Expressions
+* [x] Expressions
 * [x] Types
     * [x] Boolean
     * [x] Int
@@ -33,10 +33,10 @@ This approach allows us to focus on the compilation process itself while leverag
     * [x] Arithmetic
     * [x] Relational
 * [x] Variables
-* [ ] Variable assignment
-* [ ] Conversion
+* [x] Variable assignment
+* [x] Conversion
     * [x] Implicit
-    * [ ] Explicit
+    * [x] Explicit
 
 <br>
 
@@ -75,7 +75,7 @@ The implementation will follow the traditional compiler pipeline:
 
 
 ## 🚀 Getting Started
-*Instructions on how to clone, build, and run the project will be added once the development environment is established.*
+*Instructions on how to clone, build, and run the project will be added later on.*
 
 1. `git clone https://github.com/<your-username>/<your-repo>.git`  
 2. ...
