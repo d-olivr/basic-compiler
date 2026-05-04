@@ -66,6 +66,8 @@ string tipoResultante(string t1, string t2) {
 }
 
 /* ---------- ESTRUTURA PARA CONVERSÃO IMPLÍCITA (CAST) ---------- */
+string gentempcode(); 
+
 struct Cast {
     string label;
     string traducao;
