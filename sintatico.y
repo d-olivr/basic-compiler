@@ -11,7 +11,7 @@ using namespace std;
 int var_temp_qnt;
 int linha = 1;
 string codigo_gerado;
-string vars_temporarias = ""; // variável de texto para guardar as variáveis temporárias
+string vars_temporarias = ""; /* variável de texto para guardar as variáveis temporárias*/
 
 struct atributos {
     string label;
@@ -181,7 +181,7 @@ declaracao
         string varLabel = gentempcode(); /* "A" ganha um rótulo como "t1" */
         declararVariavel($2.label, $1.tipo, varLabel);
         
-        // Manda "int t1;" para o topo do arquivo
+        /* Manda "int t1;" para o topo do arquivo*/
         vars_temporarias += "\t" + $1.tipo + " " + varLabel + ";\n";
         
         $$.traducao = "";
@@ -193,10 +193,10 @@ declaracao
         string varLabel = gentempcode(); /* "A" vira "t1" */
         declararVariavel($2.label, $1.tipo, varLabel);
         
-        // Manda "int t1;" para o topo
+        /* Manda "int t1;" para o topo*/
         vars_temporarias += "\t" + $1.tipo + " " + varLabel + ";\n";
         
-        // Faz a atribuição usando o rótulo interno (t1 = ...)
+        /* Faz a atribuição usando o rótulo interno (t1 = ...)*/
         $$.traducao = $4.traducao +
                       "\t" + varLabel + " = " + $4.label + ";\n";
                       
@@ -422,7 +422,7 @@ E
             $$.tipo = v->tipo;
             $$.traducao = "";
         } else {
-            // Variável não declarada (apareceu do nada), gera a leitura tX = A;
+            /* Variável não declarada (apareceu do nada), gera a leitura tX = A;*/
             $$.label = gentempcode();
             $$.tipo = "int";
             vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
