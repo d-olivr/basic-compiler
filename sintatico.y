@@ -417,7 +417,7 @@ E
     {
         Variavel* v = buscarVariavel($1.label);
         if (v) {
-            // Variável foi declarada antes (int A;), então usamos o rótulo interno dela (t1)
+            /* Variável foi declarada antes (int A;), então usamos o rótulo interno dela (t1) */
             $$.label = v->label;
             $$.tipo = v->tipo;
             $$.traducao = "";
