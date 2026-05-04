@@ -62,9 +62,11 @@ ID          {LETRA}({LETRA}|{DIGITO})*
   
 
     /* ------------------------ TOKENS ------------------------ */
+\'.\'       { yylval.label = yytext; yylval.tipo = "char"; return TK_NUM; } /* reconhecendo aspas simples */
 {NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; } /* um número float é reconhecido e seu valor é armazenado em yylval.label, e seu tipo é armazenado em yylval.tipo */
 {NUM_INT}   { yylval.label = yytext; yylval.tipo = "int";   return TK_NUM; } /* a mesma lógica segue para int */
-{ID}        { yylval.label = yytext; return TK_ID; }
+{ID}        { yylval.label = yytext; yylval.tipo = "int"; return TK_ID; }
+
 
     /* -------------------- OPERADORES E SIMBOLOS -------------------- */
     /* operadores aritméticos */
