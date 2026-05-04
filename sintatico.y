@@ -65,9 +65,7 @@ string tipoResultante(string t1, string t2) {
     return "erro";
 }
 
-/* ---------- NOVA ESTRUTURA PARA CONVERSÃO IMPLÍCITA (CAST) ---------- */
-string gentempcode(); 
-
+/* ---------- ESTRUTURA PARA CONVERSÃO IMPLÍCITA (CAST) ---------- */
 struct Cast {
     string label;
     string traducao;
