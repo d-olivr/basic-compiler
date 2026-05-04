@@ -21,22 +21,54 @@ This approach allows us to focus on the compilation process itself while leverag
 
 ## 📚 Project Roadmap
 
-### Phase I - Specification
-* [ ] Expressions
-* [x] Types
-    * [x] Boolean
-    * [x] Int
-    * [x] Float
-    * [x] Char
-* [x] Operators
-    * [x] Logical
-    * [x] Arithmetic
-    * [x] Relational
-* [x] Variables
-* [ ] Variable assignment
-* [ ] Conversion
-    * [x] Implicit
-    * [ ] Explicit
+<details>
+<summary><h3>Stage I</h3></summary>
+
+- [x] Expressions
+- [x] Types
+  - [x] Boolean
+  - [x] Int
+  - [x] Float
+  - [x] Char
+- [x] Operators
+  - [x] Logical
+  - [x] Arithmetic
+  - [x] Relational
+- [x] Variables
+- [x] Variable assignment
+- [x] Conversion
+  - [x] Implicit
+  - [x] Explicit
+
+</details>
+
+### Stage 2
+- [ ] Block
+- [ ] Context
+- [ ] Global Scope
+- [ ] String
+- [ ] Input and Output Commands
+- [ ] Commands
+  - [ ] if
+  - [ ] if/else
+  - [ ] while
+  - [ ] do/while
+  - [ ] for
+  - [ ] switch
+- [ ] Loop Control
+  - [ ] break
+  - [ ] continue
+### Final stage
+- [ ] Stage I
+- [ ] Stage II
+- [ ] Functions
+- [ ] Arrays/Matrices
+- [ ] Variable Initialization
+- [ ] Array/Matrix Initialization
+- [ ] Compound Operators
+- [ ] Unary Operators
+- [ ] Error Detection
+- [ ] Extras
 
 <br>
 
@@ -75,7 +107,7 @@ The implementation will follow the traditional compiler pipeline:
 
 
 ## 🚀 Getting Started
-*Instructions on how to clone, build, and run the project will be added once the development environment is established.*
+*Instructions on how to clone, build, and run the project will be added later on.*
 
 1. `git clone https://github.com/<your-username>/<your-repo>.git`  
 2. ...
