@@ -21,7 +21,7 @@
 
 </details>
 
-### Stage 1 Issues
+### Stage 1 Known Issues
 - [ ] `bool a = 1 > 2.0` → 1 should convert to float 
 - [ ] `bool a = 1 && true` → should return an error
 - [ ] `int a = 1+2+3.0` → float should convert to int
