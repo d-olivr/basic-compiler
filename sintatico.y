@@ -4,65 +4,72 @@
 #include <stdio.h>
 #include <map>
 #include <stack>
+#include <cstdlib> // Necessário para a função exit()
 
 #define YYSTYPE atributos
 using namespace std;
 
 int var_temp_qnt;
-int linha = 1;
 string codigo_gerado;
-string vars_temporarias = ""; /* variável de texto para guardar as variáveis temporárias*/
+string vars_temporarias = ""; 
+
+/* Puxa a variável de controle de linhas lá do lexico.l */
+extern int linha;
 
 struct atributos {
     string label;
     string traducao;
-	string tipo;
+    string tipo;
 };
 
 struct Variavel {
-	string tipo;
-	string label;
+    string tipo;
+    string label;
 };
+
 /* ---------- ESTRUTURA DE VARIÁVEIS E PILHA DE ESCOPO ---------- */
-/* a pilha de escopos é uma estrutura de dados que armazena um mapa para 
-cada escopo do programa, onde o mapa associa o nome de cada variável 
-declarada no escopo ao seu tipo e rótulo (label) */
 stack<map<string, Variavel>> pilhaEscopos;
 
-/* funções para manipular a pilha de escopos
-sao usadas para controlar as variáveis declaradas em cada escopo do programa (funcoes, blocos, etc.) */
 void entrarEscopo() {
-	pilhaEscopos.push(map<string, Variavel>());
+    pilhaEscopos.push(map<string, Variavel>());
 }
 
 void sairEscopo() {
-	pilhaEscopos.pop();
+    pilhaEscopos.pop();
 }
 
-/* função para declarar uma variável no escopo atual (topo da pilha), associando seu nome a um tipo e um rótulo (label) que será usado na geração de código */
 void declararVariavel(string nome, string tipo, string label) {
-	pilhaEscopos.top()[nome] = {tipo, label};
+    pilhaEscopos.top()[nome] = {tipo, label};
 }
 
-/* função para buscar uma variável na pilha de escopos, começando do escopo mais interno (topo da pilha) e indo para os mais externos */
 Variavel* buscarVariavel(string nome) {
-	auto copia = pilhaEscopos;
-	while (!copia.empty()) {
-		if (copia.top().count(nome)) return &pilhaEscopos.top()[nome];
-		copia.pop();
-	}
-	return nullptr;
+    auto copia = pilhaEscopos;
+    while (!copia.empty()) {
+        if (copia.top().count(nome)) return &pilhaEscopos.top()[nome];
+        copia.pop();
+    }
+    return nullptr;
 }
 
-/* -------------------- FUNCÕES AUXILIARES -------------------- */
-/* conversão de tipos */
+/* ---------- VERIFICAÇÃO E CONVERSÃO DE TIPOS (ESTRITO) ---------- */
+
+/* Decide o tipo resultante de uma operação aritmética básica */
 string tipoResultante(string t1, string t2) {
+    // Bloqueia completamente qualquer operação matemática com bool ou char
+    if (t1 == "bool" || t2 == "bool") return "erro";
+    if (t1 == "char" || t2 == "char") return "erro"; 
+    
     if (t1 == t2) return t1;
     if ((t1 == "float" && t2 == "int") ||
         (t1 == "int"   && t2 == "float")) return "float";
-    if ((t1 == "bool"  && t2 == "int") ||
-        (t1 == "int"   && t2 == "bool")) return "int";
+        
     return "erro";
+}
+
+/* Interrompe a compilação imediatamente ao detectar incompatibilidade */
+void erroSemantico(string msg) {
+    cerr << "Erro Semantico na linha " << linha << ": " << msg << endl;
+    exit(1); 
 }
 
 /* ---------- ESTRUTURA PARA CONVERSÃO IMPLÍCITA (CAST) ---------- */
@@ -77,7 +84,6 @@ Cast gerarCast(string label, string tipoOriginal, string tipoDestino) {
     Cast c;
     c.label = label;
     c.traducao = "";
-    /* Se a conta pede float mas a variável é int, gera o "(float)" */
     if (tipoOriginal == "int" && tipoDestino == "float") {
         c.label = gentempcode();
         vars_temporarias += "\tfloat " + c.label + ";\n";
@@ -85,14 +91,14 @@ Cast gerarCast(string label, string tipoOriginal, string tipoDestino) {
     }
     return c;
 }
-/* ---------- FUNCÕES AUXILIARES PARA O PARSER ---------- */
+
+/* ---------- FUNÇÕES AUXILIARES PARA O PARSER ---------- */
 int yylex(void);
 void yyerror(string);
-string gentempcode();/* função para gerar um rótulo (label) temporário, que é usado para armazenar o resultado de expressões intermediárias*/
 
-/* ponteiro para o arquivo de onde o lexer vai ler */
 extern FILE *yyin;
 %}
+
 %token TK_NUM
 %token TK_ID
 %token TK_TIPO_INT
@@ -120,9 +126,8 @@ extern FILE *yyin;
 %right TK_NAO
 
 %%
+
 /* -------------------------------- REGRAS DE PRODUÇÃO ---------------------------- */
-/* a regra inicial da gramática é uma lista de comandos, que pode ser vazia 
-ou conter várias declarações, atribuições ou expressões */
 S
     : lista_comandos
     {
@@ -132,13 +137,8 @@ S
                         "#include <stdio.h>\n"
                         "int main(void) {\n";
                         
-        /* 1. Injeta todas as declarações (int t1; int x;) no topo do main */
         codigo_gerado += vars_temporarias; 
-        
-        /* 2. Dá uma quebra de linha em branco para separar as declarações do resto do código */
         codigo_gerado += "\n";
-        
-        /* 3. Injeta as atribuições e expressões (t1 = 1; x = t1 + 2;) */
         codigo_gerado += $1.traducao;
         
         codigo_gerado += "\treturn 0;\n";
@@ -148,41 +148,28 @@ S
 
 /* -------------------- LISTA DE COMANDOS -------------------- */
 lista_comandos
-	: lista_comandos declaracao
-	{
-		$$.traducao = $1.traducao + $2.traducao;/* a tradução de uma lista de comandos é a concatenação das traduções de cada comando */
-	}
-	| lista_comandos atribuicao/* atribuição é um tipo de comando, então pode aparecer em uma lista de comandos */
-	{
-		$$.traducao = $1.traducao + $2.traducao;
-	}
-	| lista_comandos E ';'/* uma expressão seguida de ponto e vírgula também eh um comando, então pode aparecer em uma lista de comandos */
-	{
-		$$.traducao = $1.traducao + $2.traducao;
-	}
-	| /* a lista de comandos pode ser vazia, e nesse caso a tradução é uma string vazia */
-	{
-		$$.traducao = "";
-	}
-	;
+    : lista_comandos declaracao  { $$.traducao = $1.traducao + $2.traducao; }
+    | lista_comandos atribuicao  { $$.traducao = $1.traducao + $2.traducao; }
+    | lista_comandos E ';'       { $$.traducao = $1.traducao + $2.traducao; }
+    |                            { $$.traducao = ""; }
+    ;
 
 /* TIPOS BÁSICOS */
 tipo
     : TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
     | TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
-    | TK_TIPO_BOOL  { $$.tipo = "int";   $$.label = "int"; } /* Força o tipo a ser impresso como int */
+    | TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; }   /* Tipo interno 'bool', mas gera 'int' no C */
     | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; }
     ;
 
-/* DECLARAÇÃO DE VARIÁVEL (com ou sem inicialização) */
+/* DECLARAÇÃO DE VARIÁVEL */
 declaracao
     : tipo TK_ID ';'
     {
-        string varLabel = gentempcode(); /* "A" ganha um rótulo como "t1" */
+        string varLabel = gentempcode(); 
         declararVariavel($2.label, $1.tipo, varLabel);
         
-        /* Manda "int t1;" para o topo do arquivo*/
-        vars_temporarias += "\t" + $1.tipo + " " + varLabel + ";\n";
+        vars_temporarias += "\t" + $1.label + " " + varLabel + ";\n"; 
         
         $$.traducao = "";
         $$.label = varLabel;
@@ -190,52 +177,82 @@ declaracao
     }
     | tipo TK_ID TK_ATRIB E ';'
     {
-        string varLabel = gentempcode(); /* "A" vira "t1" */
+        string varLabel = gentempcode(); 
         declararVariavel($2.label, $1.tipo, varLabel);
         
-        /* Manda "int t1;" para o topo*/
-        vars_temporarias += "\t" + $1.tipo + " " + varLabel + ";\n";
+        vars_temporarias += "\t" + $1.label + " " + varLabel + ";\n";
         
-        /* Faz a atribuição usando o rótulo interno (t1 = ...)*/
-        $$.traducao = $4.traducao +
-                      "\t" + varLabel + " = " + $4.label + ";\n";
-                      
+        string traducaoAux = $4.traducao;
+        string labelOrigemFinal = $4.label;
+
+        // Validação de tipos na inicialização
+        if ($1.tipo == "int" && $4.tipo == "float") {
+            erroSemantico("Tipos incompativeis: nao eh possivel inicializar int com float.");
+        }
+        else if ($1.tipo == "float" && $4.tipo == "int") {
+            Cast c = gerarCast($4.label, "int", "float");
+            traducaoAux += c.traducao;
+            labelOrigemFinal = c.label;
+        }
+        else if ($1.tipo != $4.tipo) {
+            erroSemantico("Tipos incompativeis na inicializacao de '" + $2.label + "'.");
+        }
+
+        $$.traducao = traducaoAux + "\t" + varLabel + " = " + labelOrigemFinal + ";\n";
         $$.label = varLabel;
         $$.tipo = $1.tipo;
     }
     ;
 
-/* ATRIBUIÇÃO DE VALOR A UMA VARIÁVEL JÁ DECLARADA (Ou nova) */
+/* ATRIBUIÇÃO DE VALOR */
 atribuicao
     : TK_ID TK_ATRIB E ';'
     {
         Variavel* v = buscarVariavel($1.label);
+        if (!v) {
+            erroSemantico("Variavel '" + $1.label + "' nao foi declarada.");
+        }
         
-        /* Se a variável existe na tabela, usa o "tX" dela. Se não, usa o próprio nome (ex: "A") */
-        string targetLabel = v ? v->label : $1.label;
+        string targetLabel = v->label;
+        string tipoDestino = v->tipo;
         
-        $$.traducao = $3.traducao +
-                      "\t" + targetLabel + " = " + $3.label + ";\n";
+        string traducaoAux = $3.traducao;
+        string labelOrigemFinal = $3.label;
+
+        // Validação de tipos na atribuição
+        if (tipoDestino == "int" && $3.tipo == "float") {
+            erroSemantico("Tipos incompativeis: nao eh possivel atribuir float para int.");
+        }
+        else if (tipoDestino == "float" && $3.tipo == "int") {
+            Cast c = gerarCast($3.label, "int", "float");
+            traducaoAux += c.traducao;
+            labelOrigemFinal = c.label;
+        }
+        else if (tipoDestino != $3.tipo) {
+            erroSemantico("Tipos incompativeis na atribuicao da variavel '" + $1.label + "'.");
+        }
+
+        $$.traducao = traducaoAux + "\t" + targetLabel + " = " + labelOrigemFinal + ";\n";
         $$.label = targetLabel;
-        $$.tipo = v ? v->tipo : "int";
+        $$.tipo = tipoDestino;
     }
     ;
+
 /* -------------------- EXPRESSOES --------------------*/
-/* ARITMETICAS */
 E
     : E '+' E
     {
         $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        if ($$.tipo == "erro") {
+            erroSemantico("Operacao '+' invalida entre os tipos " + $1.tipo + " e " + $3.tipo + ".");
+        }
 
-        /* Gera os casts */
         Cast c1 = gerarCast($1.label, $1.tipo, $$.tipo);
         Cast c3 = gerarCast($3.label, $3.tipo, $$.tipo);
 
-        /* Cria o temporário da conta */
         $$.label = gentempcode();
         vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
 
-        /* Monta a string na ordem: Esq -> Cast Esq -> Dir -> Cast Dir -> Soma */
         $$.traducao = $1.traducao + c1.traducao + 
                       $3.traducao + c3.traducao +
                       "\t" + $$.label + " = " + c1.label + " + " + c3.label + ";\n";
@@ -243,6 +260,9 @@ E
     | E '-' E
     {
         $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        if ($$.tipo == "erro") {
+            erroSemantico("Operacao '-' invalida entre os tipos " + $1.tipo + " e " + $3.tipo + ".");
+        }
 
         Cast c1 = gerarCast($1.label, $1.tipo, $$.tipo);
         Cast c3 = gerarCast($3.label, $3.tipo, $$.tipo);
@@ -257,6 +277,9 @@ E
     | E '*' E
     {
         $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        if ($$.tipo == "erro") {
+            erroSemantico("Operacao '*' invalida entre os tipos " + $1.tipo + " e " + $3.tipo + ".");
+        }
 
         Cast c1 = gerarCast($1.label, $1.tipo, $$.tipo);
         Cast c3 = gerarCast($3.label, $3.tipo, $$.tipo);
@@ -271,6 +294,9 @@ E
     | E '/' E
     {
         $$.tipo = tipoResultante($1.tipo, $3.tipo);
+        if ($$.tipo == "erro") {
+            erroSemantico("Operacao '/' invalida entre os tipos " + $1.tipo + " e " + $3.tipo + ".");
+        }
 
         Cast c1 = gerarCast($1.label, $1.tipo, $$.tipo);
         Cast c3 = gerarCast($3.label, $3.tipo, $$.tipo);
@@ -283,17 +309,23 @@ E
                       "\t" + $$.label + " = " + c1.label + " / " + c3.label + ";\n";
     }
 
-    /* LOGICAS */
+    /* LOGICAS (Rígido: exige operandos estritamente booleanos) */
     | E TK_E E
     {
+        if ($1.tipo != "bool" || $3.tipo != "bool") {
+            erroSemantico("O operador '&&' exige operandos do tipo bool.");
+        }
         $$.label = gentempcode();
         $$.tipo = "bool";
-        vars_temporarias += "\tint " + $$.label + ";\n";
+        vars_temporarias += "\tint " + $$.label + ";\n"; 
         $$.traducao = $1.traducao + $3.traducao +
                       "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n";
     }
     | E TK_OU E
     {
+        if ($1.tipo != "bool" || $3.tipo != "bool") {
+            erroSemantico("O operador '||' exige operandos do tipo bool.");
+        }
         $$.label = gentempcode();
         $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
@@ -302,63 +334,75 @@ E
     }
     | TK_NAO E
     {
+        if ($2.tipo != "bool") {
+            erroSemantico("O operador '!' exige um operando do tipo bool.");
+        }
         $$.label = gentempcode();
         $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
         $$.traducao = $2.traducao +
                       "\t" + $$.label + " = !" + $2.label + ";\n";
     }
-    /* RELACIONAIS */
+
+    /* RELACIONAIS DE IGUALDADE (Exige tipos idênticos para bool) */
     | E TK_IGUAL E
     {
-        $$.label = gentempcode();
-        $$.tipo = "bool";
+        if (($1.tipo == "bool" && $3.tipo != "bool") || ($3.tipo == "bool" && $1.tipo != "bool")) {
+            erroSemantico("Nao eh possivel comparar os tipos " + $1.tipo + " e " + $3.tipo + " com '=='.");
+        }
+        $$.label = gentempcode(); $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
-        $$.traducao = $1.traducao + $3.traducao +
-                      "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n";
     }
     | E TK_DIFERENTE E
     {
-        $$.label = gentempcode();
-        $$.tipo = "bool";
+        if (($1.tipo == "bool" && $3.tipo != "bool") || ($3.tipo == "bool" && $1.tipo != "bool")) {
+            erroSemantico("Nao eh possivel comparar os tipos " + $1.tipo + " e " + $3.tipo + " com '!='.");
+        }
+        $$.label = gentempcode(); $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
-        $$.traducao = $1.traducao + $3.traducao +
-                      "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n";
     }
+
+    /* RELACIONAIS DE MAIOR/MENOR (Proibido o uso com booleans) */
     | E '<' E
     {
-        $$.label = gentempcode();
-        $$.tipo = "bool";
+        if ($1.tipo == "bool" || $3.tipo == "bool") {
+            erroSemantico("Operador '<' nao pode ser usado com o tipo bool.");
+        }
+        $$.label = gentempcode(); $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
-        $$.traducao = $1.traducao + $3.traducao +
-                      "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n";
     }
     | E '>' E
     {
-        $$.label = gentempcode();
-        $$.tipo = "bool";
+        if ($1.tipo == "bool" || $3.tipo == "bool") {
+            erroSemantico("Operador '>' nao pode ser usado com o tipo bool.");
+        }
+        $$.label = gentempcode(); $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
-        $$.traducao = $1.traducao + $3.traducao +
-                      "\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n";
     }
     | E TK_MENOR_IGUAL E
     {
-        $$.label = gentempcode();
-        $$.tipo = "bool";
+        if ($1.tipo == "bool" || $3.tipo == "bool") {
+            erroSemantico("Operador '<=' nao pode ser usado com o tipo bool.");
+        }
+        $$.label = gentempcode(); $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
-        $$.traducao = $1.traducao + $3.traducao +
-                      "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n";
     }
     | E TK_MAIOR_IGUAL E
     {
-        $$.label = gentempcode();
-        $$.tipo = "bool";
+        if ($1.tipo == "bool" || $3.tipo == "bool") {
+            erroSemantico("Operador '>=' nao pode ser usado com o tipo bool.");
+        }
+        $$.label = gentempcode(); $$.tipo = "bool";
         vars_temporarias += "\tint " + $$.label + ";\n";
-        $$.traducao = $1.traducao + $3.traducao +
-                      "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n";
+        $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n";
     }
-	
-    /* PARENTESIS (Agrupamento matemático) */
+    
+    /* PARENTESIS */
     | '(' E ')'
     {
         $$.label = $2.label;
@@ -366,30 +410,23 @@ E
         $$.traducao = $2.traducao;
     }
     
-    /* CONVERSÃO EXPLÍCITA (CAST: ex: (int) 3.5 ) */
+    /* CAST EXPLÍCITO */
     | '(' tipo ')' E
     {
         $$.label = gentempcode();
-        $$.tipo = $2.tipo; /* O novo tipo vai ser o que está dentro do parênteses */
-        
-        /* Declara o temporário com o novo tipo lá no topo */
-        vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
-        
-        /* Imprime a conversão no código C */
-        $$.traducao = $4.traducao +
-                      "\t" + $$.label + " = (" + $2.tipo + ") " + $4.label + ";\n";
+        $$.tipo = $2.tipo; 
+        vars_temporarias += "\t" + $2.label + " " + $$.label + ";\n"; 
+        $$.traducao = $4.traducao + "\t" + $$.label + " = (" + $2.label + ") " + $4.label + ";\n";
     }
 
     /* VALORES LITERAIS */
     | TK_NUM
     {
         if ($1.tipo == "char") {
-            /* Se for caractere, passa direto sem gerar temporário extra */
             $$.label = $1.label;
             $$.tipo = $1.tipo;
             $$.traducao = "";
         } else {
-            /* Mantém a regra normal para int e float (Testes 03 e 05) */
             $$.label = gentempcode();
             $$.tipo = $1.tipo;
             vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n";
@@ -398,73 +435,61 @@ E
     }
     | TK_TRUE
     {
-        /* Booleano passa direto como 1 sem temporário */
         $$.label = "1";
-        $$.tipo = "int";
+        $$.tipo = "bool"; 
         $$.traducao = "";
     }
     | TK_FALSE
     {
-        /* Booleano passa direto como 0 sem temporário */
         $$.label = "0";
-        $$.tipo = "int";
+        $$.tipo = "bool"; 
         $$.traducao = "";
     }
     
-    /* VARIÁVEL */
     /* VARIÁVEL DENTRO DA CONTA */
     | TK_ID
     {
         Variavel* v = buscarVariavel($1.label);
         if (v) {
-            /* Variável foi declarada antes (int A;), então usamos o rótulo interno dela (t1) */
             $$.label = v->label;
             $$.tipo = v->tipo;
             $$.traducao = "";
         } else {
-            /* Variável não declarada (apareceu do nada), gera a leitura tX = A;*/
-            $$.label = gentempcode();
-            $$.tipo = "int";
-            vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
-            $$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+            erroSemantico("Variavel '" + $1.label + "' nao foi declarada neste escopo.");
         }
     }
     ;
 
 %%
 
-/* função para gerar um rótulo (label) temporário, que é usado para armazenar o resultado de expressões intermediárias */
 string gentempcode() {
     var_temp_qnt++;
     return "t" + to_string(var_temp_qnt);
 }
-/* ---------- FUNÇÃO PRINCIPAL ---------- 
-- inicializa a pilha de escopos
-- lê o arquivo de entrada (se fornecido)
-- chama o parser */
+
 int main(int argc, char* argv[])
 {
-	var_temp_qnt = 0;
-	entrarEscopo();
+    var_temp_qnt = 0;
+    entrarEscopo();
 
-	if (argc > 1)/* se um nome de arquivo for fornecido como argumento, o lexer vai ler desse arquivo em vez de ler da entrada padrão */
-	{
-		yyin = fopen(argv[1], "r");/* nome do arquivo é passado como argumento */
-		if (!yyin)
-		{
-			perror("Erro ao abrir arquivo");
-			return 1;
-		}
-	}
+    if (argc > 1)
+    {
+        yyin = fopen(argv[1], "r");
+        if (!yyin)
+        {
+            perror("Erro ao abrir arquivo");
+            return 1;
+        }
+    }
 
-	if (yyparse() == 0)/* yyparse() retorna 0 se a análise sintática for bem-sucedida ou diferente de zero se houver um erro de sintaxe */
-		cout << codigo_gerado;/* se a análise sintática for bem-sucedida, o código gerado vai ser impresso*/
+    if (yyparse() == 0)
+        cout << codigo_gerado;
 
-	sairEscopo();
-	return 0;
+    sairEscopo();
+    return 0;
 }
-    /* -------------------- TRATAMENTO DE ERROS SINTATICOS -------------------- */
+
 void yyerror(string MSG)
 {
-	cerr << "Erro na linha " << linha << ": " << MSG << endl;
+    cerr << "Erro Sintatico na linha " << linha << ": " << MSG << endl;
 }
