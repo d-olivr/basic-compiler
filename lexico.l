@@ -39,6 +39,12 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "print"     { return TK_PRINT; }
 "read"      { return TK_READ; }
 
+"if"        { return TK_IF; }
+"else"      { return TK_ELSE; }
+"while"     { return TK_WHILE; }
+"for"       { return TK_FOR; }
+"do"        { return TK_DO; }
+
 \'.\'       { yylval.label = yytext; yylval.tipo = "char"; return TK_NUM; } 
 {NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; } 
 {NUM_INT}   { yylval.label = yytext; yylval.tipo = "int";   return TK_NUM; } 
