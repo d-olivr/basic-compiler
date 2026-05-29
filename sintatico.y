@@ -14,6 +14,9 @@ int label_qnt = 0;
 string codigo_gerado;
 string vars_temporarias = ""; 
 
+stack<string> stack_break;    // Pilha para o break
+stack<string> stack_continue; // Pilha para o continue
+
 extern int linha;
 
 struct atributos {
@@ -75,6 +78,7 @@ extern FILE *yyin;
 %token TK_TRUE TK_FALSE TK_ATRIB TK_E TK_OU TK_NAO TK_IGUAL TK_DIFERENTE
 %token TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_PRINT TK_READ
 %token TK_IF TK_ELSE TK_WHILE TK_FOR TK_DO
+%token TK_BREAK TK_CONTINUE
 
 /* Precedência para resolver o Dangling Else */
 %nonassoc LOWER_THAN_ELSE
@@ -93,7 +97,7 @@ extern FILE *yyin;
 %%
 
 S : lista_comandos {
-    codigo_gerado = "__________________________\n\n★  MIKU COMPILER (^_^)  ★\n__________________________\n\n#include <stdio.h>\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
+    codigo_gerado = "/*__________________________\n\n★  MIKU COMPILER (^_^)  ★\n__________________________*/\n\n#include <stdio.h>\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
 } ;
 
 lista_comandos : lista_comandos comando { $$.traducao = $1.traducao + $2.traducao; }
@@ -112,6 +116,14 @@ comando : declaracao             { $$.traducao = $1.traducao; }
             string fmt = (v->tipo == "float") ? "%f" : "%d";
             $$.traducao = "\tscanf(\"" + fmt + "\", &" + v->label + ");\n";
         }
+        | TK_BREAK ';' {
+            if (stack_break.empty()) erroSemantico("comando 'break' fora de um laco de repeticao.");
+            $$.traducao = "\tgoto " + stack_break.top() + ";\n";
+        }
+        | TK_CONTINUE ';' {
+            if (stack_continue.empty()) erroSemantico("comando 'continue' fora de um laco de repeticao.");
+            $$.traducao = "\tgoto " + stack_continue.top() + ";\n";
+        }
         /* Fluxo de Controle com Precedência */
         | TK_IF '(' E ')' Bloco %prec LOWER_THAN_ELSE {
             string l1 = genlabel();
@@ -121,17 +133,76 @@ comando : declaracao             { $$.traducao = $1.traducao; }
             string l1 = genlabel(); string l2 = genlabel();
             $$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + l1 + ";\n" + $5.traducao + "\tgoto " + l2 + ";\n" + l1 + ":;\n" + $7.traducao + l2 + ":;\n";
         }
-        | TK_WHILE '(' E ')' Bloco {
-            string start = genlabel(); string end = genlabel();
-            $$.traducao = start + ":;\n" + $3.traducao + "\tif (!" + $3.label + ") goto " + end + ";\n" + $5.traducao + "\tgoto " + start + ";\n" + end + ":;\n";
+        | TK_WHILE '(' E ')' {
+            // Ação de meio de regra ($5)
+            $$.label = genlabel();    // label de inicio (alvo do continue)
+            $$.traducao = genlabel(); // label de fim (alvo do break)
+            
+            stack_continue.push($$.label);
+            stack_break.push($$.traducao);
+        } Bloco {
+            // Ação final ($7)
+            string start = $5.label;
+            string end = $5.traducao;
+            
+            $$.traducao = start + ":;\n" + 
+                          $3.traducao + 
+                          "\tif (!" + $3.label + ") goto " + end + ";\n" + 
+                          $6.traducao + 
+                          "\tgoto " + start + ";\n" + 
+                          end + ":;\n";
+                          
+            stack_continue.pop();
+            stack_break.pop();
         }
-        | TK_DO Bloco TK_WHILE '(' E ')' ';' {
-            string start = genlabel();
-            $$.traducao = start + ":;\n" + $2.traducao + $5.traducao + "\tif (" + $5.label + ") goto " + start + ";\n";
+        | TK_DO {
+            // Ação de meio de regra ($2)
+            $$.label = genlabel();    // start (inicio do bloco)
+            $$.traducao = genlabel(); // cont (alvo do continue, antes da condicao)
+            $$.tipo = genlabel();     // end (alvo do break)
+            
+            stack_continue.push($$.traducao);
+            stack_break.push($$.tipo);
+        } Bloco TK_WHILE '(' E ')' ';' {
+            string start = $2.label;
+            string cont = $2.traducao;
+            string end = $2.tipo;
+            
+            $$.traducao = start + ":;\n" + 
+                          $3.traducao + 
+                          cont + ":;\n" + 
+                          $6.traducao + 
+                          "\tif (" + $6.label + ") goto " + start + ";\n" +
+                          end + ":;\n";
+                          
+            stack_continue.pop();
+            stack_break.pop();
         }
-        | TK_FOR '(' atrib_base ';' E ';' atrib_base ')' Bloco {
-            string start = genlabel(); string end = genlabel();
-            $$.traducao = $3.traducao + start + ":;\n" + $5.traducao + "\tif (!" + $5.label + ") goto " + end + ";\n" + $9.traducao + $7.traducao + "\tgoto " + start + ";\n" + end + ":;\n";
+        | TK_FOR '(' atrib_base ';' E ';' {
+            // Ação de meio de regra ($7)
+            $$.label = genlabel();    // start (avaliacao da condicao)
+            $$.traducao = genlabel(); // end (alvo do break)
+            $$.tipo = genlabel();     // inc (alvo do continue, no incremento)
+            
+            stack_continue.push($$.tipo);
+            stack_break.push($$.traducao);
+        } atrib_base ')' Bloco {
+            string start = $7.label;
+            string end = $7.traducao;
+            string inc = $7.tipo;
+            
+            $$.traducao = $3.traducao + 
+                          start + ":;\n" + 
+                          $5.traducao + 
+                          "\tif (!" + $5.label + ") goto " + end + ";\n" + 
+                          $10.traducao + 
+                          inc + ":;\n" + 
+                          $8.traducao + 
+                          "\tgoto " + start + ";\n" + 
+                          end + ":;\n";
+                          
+            stack_continue.pop();
+            stack_break.pop();
         };
 
 Bloco : '{' { entrarEscopo(); } lista_comandos '}' { $$.traducao = "\t{\n" + $3.traducao + "\t}\n"; sairEscopo(); };
