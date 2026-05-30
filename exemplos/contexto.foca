@@ -1,0 +1,4 @@
+int nota = 10;
+print(nota);
+
+media = 7;

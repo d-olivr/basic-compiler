@@ -16,6 +16,8 @@ string vars_temporarias = "";
 
 stack<string> stack_break;    // Pilha para o break
 stack<string> stack_continue; // Pilha para o continue
+stack<string> stack_switch_expr; // Guarda o valor que está a ser avaliado
+stack<string> stack_switch_flag; // Guarda a flag do fall-through
 
 extern int linha;
 
@@ -79,6 +81,7 @@ extern FILE *yyin;
 %token TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_PRINT TK_READ
 %token TK_IF TK_ELSE TK_WHILE TK_FOR TK_DO
 %token TK_BREAK TK_CONTINUE
+%token TK_SWITCH TK_CASE TK_DEFAULT
 
 /* Precedência para resolver o Dangling Else */
 %nonassoc LOWER_THAN_ELSE
@@ -203,9 +206,52 @@ comando : declaracao             { $$.traducao = $1.traducao; }
                           
             stack_continue.pop();
             stack_break.pop();
+        }
+        | TK_SWITCH '(' E ')' {
+            // Ação de meio de regra
+            string flag = gentempcode();
+            vars_temporarias += "\tint " + flag + " = 0;\n"; // Inicializa a flag a 0
+            
+            stack_switch_expr.push($3.label);
+            stack_switch_flag.push(flag);
+            
+            $$.label = genlabel(); // Label de fim (para o break saber para onde saltar)
+            stack_break.push($$.label);
+        } '{' casos '}' {
+            // Ação final
+            $$.traducao = $3.traducao + $7.traducao + $5.label + ":;\n";
+            
+            stack_switch_expr.pop();
+            stack_switch_flag.pop();
+            stack_break.pop();
         };
 
 Bloco : '{' { entrarEscopo(); } lista_comandos '}' { $$.traducao = "\t{\n" + $3.traducao + "\t}\n"; sairEscopo(); };
+
+casos : casos caso { $$.traducao = $1.traducao + $2.traducao; }
+      | /* vazio */ { $$.traducao = ""; }
+      ;
+
+caso : TK_CASE TK_NUM ':' lista_comandos {
+    string expr = stack_switch_expr.top();
+    string flag = stack_switch_flag.top();
+    string next_case = genlabel();
+
+    $$.traducao = "\tif (" + expr + " == " + $2.label + ") " + flag + " = 1;\n" +
+                  "\tif (!" + flag + ") goto " + next_case + ";\n" +
+                  $4.traducao +
+                  next_case + ":;\n";
+}
+| TK_DEFAULT ':' lista_comandos {
+    string flag = stack_switch_flag.top();
+    string next_case = genlabel();
+
+    $$.traducao = "\t" + flag + " = 1;\n" +
+                  "\tif (!" + flag + ") goto " + next_case + ";\n" +
+                  $3.traducao +
+                  next_case + ":;\n";
+}
+;
 
 tipo : TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
      | TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }

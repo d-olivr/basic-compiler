@@ -48,6 +48,10 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "break"     { return TK_BREAK; }
 "continue"  { return TK_CONTINUE; }
 
+"switch"    { return TK_SWITCH; }
+"case"      { return TK_CASE; }
+"default"   { return TK_DEFAULT; }
+
 \'.\'       { yylval.label = yytext; yylval.tipo = "char"; return TK_NUM; } 
 {NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; } 
 {NUM_INT}   { yylval.label = yytext; yylval.tipo = "int";   return TK_NUM; } 
