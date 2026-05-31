@@ -82,6 +82,7 @@ extern FILE *yyin;
 %token TK_IF TK_ELSE TK_WHILE TK_FOR TK_DO
 %token TK_BREAK TK_CONTINUE
 %token TK_SWITCH TK_CASE TK_DEFAULT
+%token TK_TIPO_STRING TK_STR_LITERAL
 
 /* Precedência para resolver o Dangling Else */
 %nonassoc LOWER_THAN_ELSE
