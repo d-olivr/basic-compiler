@@ -257,7 +257,8 @@ caso : TK_CASE TK_NUM ':' lista_comandos {
 tipo : TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
      | TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
      | TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; }
-     | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; } ;
+     | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; } 
+     | TK_TIPO_STRING { $$.tipo = "string"; $$.label = "char*"; };
 
 declaracao : tipo TK_ID ';' {
     string varLabel = gentempcode(); 
