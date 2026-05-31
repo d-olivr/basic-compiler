@@ -26,7 +26,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 %%
 
 "\n"        { linha++; } 
-[ \t]+      { }
+[ \t\r\xa0]+    { /* ignora espaços, tabs, quebras do windows e espaços fantasmas */ }
 
 "int"       { return TK_TIPO_INT; } 
 "float"     { return TK_TIPO_FLOAT; } 
