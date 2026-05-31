@@ -272,6 +272,21 @@ declaracao : tipo TK_ID ';' {
     string trad = $4.traducao; string lab = $4.label;
     if ($1.tipo == "float" && $4.tipo == "int") { Cast c = gerarCast($4.label, "int", "float"); trad += c.traducao; lab = c.label; }
     $$.traducao = trad + "\t" + varLabel + " = " + lab + ";\n";
+} | TK_TIPO_STRING TK_ID ';' {
+    string varLabel = gentempcode();
+    string capLabel = varLabel + "_cap";
+    declararVariavel($2.label, "string", varLabel);
+    vars_temporarias += "\tint " + capLabel + " = 1000;\n";
+    vars_temporarias += "\tchar *" + varLabel + " = (char*) malloc(1000);\n";
+    $$.traducao = "\t" + varLabel + "[0] = '\\0';\n";
+} | TK_TIPO_STRING TK_ID TK_ATRIB TK_STR_LITERAL ';' {
+    string varLabel = gentempcode();
+    string capLabel = varLabel + "_cap";
+    declararVariavel($2.label, "string", varLabel);
+    vars_temporarias += "\tint " + capLabel + " = 1000;\n";
+    vars_temporarias += "\tchar *" + varLabel + " = (char*) malloc(1000);\n";
+    $$.traducao = "\t" + varLabel + "[0] = '\\0';\n"
+                + "\t_miku_strcpy_safe(&" + varLabel + ", &" + capLabel + ", " + $4.label + ");\n";
 };
 
 atrib_base : TK_ID TK_ATRIB E {
