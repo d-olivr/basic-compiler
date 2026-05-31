@@ -83,7 +83,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "}"         { return '}'; }
 ":"         { return ':'; }
 ";"         { return ';'; }
-\"[^\"]*\"  { yylval.label = yytext; yylval.tipo = "string"; return TK_STR_LITERAL; }
+\"[^\"\n]*\"  { yylval.label = yytext; yylval.tipo = "string"; return TK_STR_LITERAL; }
 
 .           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
 
