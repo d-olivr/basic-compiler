@@ -120,9 +120,12 @@ comando : declaracao             { $$.traducao = $1.traducao; }
         | atribuicao             { $$.traducao = $1.traducao; }
         | E ';'                  { $$.traducao = $1.traducao; }
         | Bloco                  { $$.traducao = $1.traducao; }
-        | TK_PRINT '(' E ')' ';' { 
-            string fmt = ($3.tipo == "float") ? "%f" : "%d";
-            $$.traducao = $3.traducao + "\tprintf(\"" + fmt + "\\n\", " + $3.label + ");\n"; 
+        | TK_PRINT '(' E ')' ';' {
+            string fmt;
+            if ($3.tipo == "float") fmt = "%f";
+            else if ($3.tipo == "string") fmt = "%s";
+            else fmt = "%d";
+            $$.traducao = $3.traducao + "\tprintf(\"" + fmt + "\\n\", " + $3.label + ");\n";
         }
         | TK_READ '(' TK_ID ')' ';' { 
             Variavel* v = buscarVariavel($3.label);
