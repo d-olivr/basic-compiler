@@ -82,6 +82,7 @@ extern FILE *yyin;
 %token TK_IF TK_ELSE TK_WHILE TK_FOR TK_DO
 %token TK_BREAK TK_CONTINUE
 %token TK_SWITCH TK_CASE TK_DEFAULT
+%token TK_TIPO_STRING TK_STR_LITERAL
 
 /* Precedência para resolver o Dangling Else */
 %nonassoc LOWER_THAN_ELSE
@@ -94,13 +95,23 @@ extern FILE *yyin;
 %left '+' '-'
 %left '*' '/'
 %right TK_NAO
+%right CAST
 
 %start S
 
 %%
 
 S : lista_comandos {
-    codigo_gerado = "/*__________________________\n\n★  MIKU COMPILER (^_^)  ★\n__________________________*/\n\n#include <stdio.h>\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
+    codigo_gerado = "/*__________________________\n\n★  MIKU COMPILER (^_^)  ★\n__________________________*/\n\n"
+    "#include <stdio.h>\n"
+    "#include <stdlib.h>\n"
+    "#include <string.h>\n"
+    "\nint _miku_len(char *s){int i=0;while(s[i])i++;return i;}\n" // implementacao manual de strlen -> miku_len
+    "void _miku_strcpy_safe(char**d,int*c,char*s){\n"
+    "  int n=_miku_len(s)+1;\n"
+    "  while(*c<n){int f=n-(*c);*c+=(f<500)?500:1000;}\n"
+    "  *d=(char*)realloc(*d,*c);strcpy(*d,s);}\n"
+    "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
 } ;
 
 lista_comandos : lista_comandos comando { $$.traducao = $1.traducao + $2.traducao; }
@@ -110,9 +121,12 @@ comando : declaracao             { $$.traducao = $1.traducao; }
         | atribuicao             { $$.traducao = $1.traducao; }
         | E ';'                  { $$.traducao = $1.traducao; }
         | Bloco                  { $$.traducao = $1.traducao; }
-        | TK_PRINT '(' E ')' ';' { 
-            string fmt = ($3.tipo == "float") ? "%f" : "%d";
-            $$.traducao = $3.traducao + "\tprintf(\"" + fmt + "\\n\", " + $3.label + ");\n"; 
+        | TK_PRINT '(' E ')' ';' {
+            string fmt;
+            if ($3.tipo == "float") fmt = "%f";
+            else if ($3.tipo == "string") fmt = "%s";
+            else fmt = "%d";
+            $$.traducao = $3.traducao + "\tprintf(\"" + fmt + "\\n\", " + $3.label + ");\n";
         }
         | TK_READ '(' TK_ID ')' ';' { 
             Variavel* v = buscarVariavel($3.label);
@@ -256,7 +270,7 @@ caso : TK_CASE TK_NUM ':' lista_comandos {
 tipo : TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
      | TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
      | TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; }
-     | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; } ;
+     | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; };
 
 declaracao : tipo TK_ID ';' {
     string varLabel = gentempcode(); 
@@ -270,14 +284,33 @@ declaracao : tipo TK_ID ';' {
     string trad = $4.traducao; string lab = $4.label;
     if ($1.tipo == "float" && $4.tipo == "int") { Cast c = gerarCast($4.label, "int", "float"); trad += c.traducao; lab = c.label; }
     $$.traducao = trad + "\t" + varLabel + " = " + lab + ";\n";
+} | TK_TIPO_STRING TK_ID ';' {
+    string varLabel = gentempcode();
+    string capLabel = varLabel + "_cap";
+    declararVariavel($2.label, "string", varLabel);
+    vars_temporarias += "\tint " + capLabel + " = 1000;\n";
+    vars_temporarias += "\tchar *" + varLabel + " = (char*) malloc(1000);\n";
+    $$.traducao = "\t" + varLabel + "[0] = '\\0';\n";
+} | TK_TIPO_STRING TK_ID TK_ATRIB TK_STR_LITERAL ';' {
+    string varLabel = gentempcode();
+    string capLabel = varLabel + "_cap";
+    declararVariavel($2.label, "string", varLabel);
+    vars_temporarias += "\tint " + capLabel + " = 1000;\n";
+    vars_temporarias += "\tchar *" + varLabel + " = (char*) malloc(1000);\n";
+    $$.traducao = "\t" + varLabel + "[0] = '\\0';\n"
+                + "\t_miku_strcpy_safe(&" + varLabel + ", &" + capLabel + ", " + $4.label + ");\n";
 };
 
 atrib_base : TK_ID TK_ATRIB E {
     Variavel* v = buscarVariavel($1.label);
     if (!v) erroSemantico("Variavel '" + $1.label + "' nao declarada.");
     string trad = $3.traducao; string lab = $3.label;
-    if (v->tipo == "float" && $3.tipo == "int") { Cast c = gerarCast($3.label, "int", "float"); trad += c.traducao; lab = c.label; }
-    $$.traducao = trad + "\t" + v->label + " = " + lab + ";\n";
+    if (v->tipo == "string") {
+        $$.traducao = trad + "\t_miku_strcpy_safe(&" + v->label + ", &" + v->label + "_cap, " + lab + ");\n";
+    } else {
+        if (v->tipo == "float" && $3.tipo == "int") { Cast c = gerarCast($3.label, "int", "float"); trad += c.traducao; lab = c.label; }
+        $$.traducao = trad + "\t" + v->label + " = " + lab + ";\n";
+    }
 };
 
 atribuicao : atrib_base ';' { $$.traducao = $1.traducao; };
@@ -296,11 +329,12 @@ E : E '+' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " "
   | E TK_MENOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n"; }
   | E TK_MAIOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n"; }
   | '(' E ')' { $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
-  | '(' tipo ')' E { $$.label = gentempcode(); $$.tipo = $2.tipo; vars_temporarias += "\t" + $2.label + " " + $$.label + ";\n"; $$.traducao = $4.traducao + "\t" + $$.label + " = (" + $2.label + ") " + $4.label + ";\n"; }
+  | '(' tipo ')' E %prec CAST { $$.label = gentempcode(); $$.tipo = $2.tipo; vars_temporarias += "\t" + $2.label + " " + $$.label + ";\n"; $$.traducao = $4.traducao + "\t" + $$.label + " = (" + $2.label + ") " + $4.label + ";\n"; }
   | TK_NUM { if ($1.tipo == "char") { $$.label = $1.label; $$.tipo = $1.tipo; $$.traducao = ""; } else { $$.label = gentempcode(); $$.tipo = $1.tipo; vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = "\t" + $$.label + " = " + $1.label + ";\n"; } }
   | TK_TRUE { $$.label = "1"; $$.tipo = "bool"; $$.traducao = ""; }
   | TK_FALSE { $$.label = "0"; $$.tipo = "bool"; $$.traducao = ""; }
-  | TK_ID { Variavel* v = buscarVariavel($1.label); if(v) { $$.label = v->label; $$.tipo = v->tipo; $$.traducao = ""; } else { erroSemantico("Variavel '" + $1.label + "' nao declarada."); } }
+  | TK_ID { Variavel* v = buscarVariavel($1.label); if(v) { $$.label = v->label; $$.tipo = v->tipo; $$.traducao = ""; } else { erroSemantico("Variavel '" + $1.label + "' nao declarada."); }}
+  | TK_STR_LITERAL { $$.label = $1.label; $$.tipo = "string"; $$.traducao = ""; }
   ;
 
 %%

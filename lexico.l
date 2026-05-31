@@ -26,11 +26,12 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 %%
 
 "\n"        { linha++; } 
-[ \t]+      { }
+[ \t\r\xa0]+    { /* ignora espaços, tabs, quebras do windows e espaços fantasmas */ }
 
 "int"       { return TK_TIPO_INT; } 
 "float"     { return TK_TIPO_FLOAT; } 
 "char"      { return TK_TIPO_CHAR; }
+"string"    { return TK_TIPO_STRING; }
 "bool"      { return TK_TIPO_BOOL; }
 
 "true"      { return TK_TRUE; } 
@@ -82,6 +83,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "}"         { return '}'; }
 ":"         { return ':'; }
 ";"         { return ';'; }
+\"[^\"]*\"  { yylval.label = yytext; yylval.tipo = "string"; return TK_STR_LITERAL; }
 
 .           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
 
