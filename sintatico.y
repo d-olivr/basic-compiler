@@ -105,9 +105,9 @@ S : lista_comandos {
     "#include <stdio.h>\n"
     "#include <stdlib.h>\n"
     "#include <string.h>\n"
-    "\nint _miku_strlen(char *s){int i=0;while(s[i])i++;return i;}\n" // implementacao manual de strlen -> miku_strlen
+    "\nint _miku_len(char *s){int i=0;while(s[i])i++;return i;}\n" // implementacao manual de strlen -> miku_len
     "void _miku_strcpy_safe(char**d,int*c,char*s){\n"
-    "  int n=_miku_strlen(s)+1;\n"
+    "  int n=_miku_len(s)+1;\n"
     "  while(*c<n){int f=n-(*c);*c+=(f<500)?500:1000;}\n"
     "  *d=(char*)realloc(*d,*c);strcpy(*d,s);}\n"
     "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
