@@ -101,7 +101,16 @@ extern FILE *yyin;
 %%
 
 S : lista_comandos {
-    codigo_gerado = "/*__________________________\n\n★  MIKU COMPILER (^_^)  ★\n__________________________*/\n\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
+    codigo_gerado = "/*__________________________\n\n★  MIKU COMPILER (^_^)  ★\n__________________________*/\n\n"
+    "#include <stdio.h>\n"
+    "#include <stdlib.h>\n"
+    "#include <string.h>\n"
+    "\nint _miku_strlen(char *s){int i=0;while(s[i])i++;return i;}\n" // implementacao manual de strlen -> miku_strlen
+    "void _miku_strcpy_safe(char**d,int*c,char*s){\n"
+    "  int n=_miku_strlen(s)+1;\n"
+    "  while(*c<n){int f=n-(*c);*c+=(f<500)?500:1000;}\n"
+    "  *d=(char*)realloc(*d,*c);strcpy(*d,s);}\n"
+    "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
 } ;
 
 lista_comandos : lista_comandos comando { $$.traducao = $1.traducao + $2.traducao; }
