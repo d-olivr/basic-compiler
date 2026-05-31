@@ -19,12 +19,11 @@
   - [x] Implicit
   - [x] Explicit
 
-</details>
-
 ### Stage 1 Known Issues
 - [x] (FIXED!) `bool a = 1 > 2.0` → 1 should convert to float 
 - [x] (FIXED!) `bool a = 1 && true` → should return an error
 - [x] (FIXED!) `int a = 1+2+3.0` → float should convert to int
+</details>
 
 ## Stage 2
 - [x] Block
