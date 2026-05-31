@@ -31,6 +31,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "int"       { return TK_TIPO_INT; } 
 "float"     { return TK_TIPO_FLOAT; } 
 "char"      { return TK_TIPO_CHAR; }
+"string"    { return TK_TIPO_STRING; }
 "bool"      { return TK_TIPO_BOOL; }
 
 "true"      { return TK_TRUE; } 
