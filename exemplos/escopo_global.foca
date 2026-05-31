@@ -1,0 +1,9 @@
+int global = 100;
+print(global);
+
+{
+    global = 42;
+    print(global);
+}
+
+print(global);

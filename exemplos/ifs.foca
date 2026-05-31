@@ -1,0 +1,32 @@
+int x = 10;
+
+print(1111);
+if (x > 5) {
+    print(1); 
+}
+
+if (x < 5) {
+    print(0);
+} else {
+    print(2); 
+}
+
+print(2222);
+int w = 0;
+while (w < 2) {
+    print(w);
+    w = w + 1;
+}
+
+print(3333);
+int d = 5;
+do {
+    print(d);
+    d = d - 1;
+} while (d > 3);
+
+print(4444);
+int f;
+for (f = 10; f < 13; f = f + 1) {
+    print(f);
+}

@@ -1,0 +1,12 @@
+int x = 10;
+print(x);
+
+{
+    int x = 99;
+    int y = 50;
+    
+    print(x);
+    print(y);
+}
+
+print(x);

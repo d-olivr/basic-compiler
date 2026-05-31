@@ -1,0 +1,12 @@
+int ano;
+float peso;
+
+print(12345);
+
+read(ano);
+read(peso);
+
+print(55555);
+
+print(ano);
+print(peso);
