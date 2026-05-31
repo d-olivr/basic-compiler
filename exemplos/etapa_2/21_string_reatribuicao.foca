@@ -1,0 +1,4 @@
+string s = "primeiro";
+print(s);
+s = "segundo";
+print(s);
