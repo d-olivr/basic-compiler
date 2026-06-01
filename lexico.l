@@ -83,7 +83,16 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "}"         { return '}'; }
 ":"         { return ':'; }
 ";"         { return ';'; }
-\"[^\"]*\"  { yylval.label = yytext; yylval.tipo = "string"; return TK_STR_LITERAL; }
+\"[^\"\n]*\"  {
+    int len = strlen(yytext) - 2; // -2 para descontar as aspas
+    if (len > 4500) {
+        fprintf(stderr, "Erro lexico na linha %d: string literal excede 4500 caracteres (%d)\n", linha, len);
+        exit(1);
+    }
+    yylval.label = yytext;
+    yylval.tipo = "string";
+    return TK_STR_LITERAL;
+}
 
 .           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
 

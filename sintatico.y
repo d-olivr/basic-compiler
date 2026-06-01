@@ -111,6 +111,12 @@ S : lista_comandos {
     "  int n=_miku_len(s)+1;\n"
     "  while(*c<n){int f=n-(*c);*c+=(f<500)?500:1000;}\n"
     "  *d=(char*)realloc(*d,*c);strcpy(*d,s);}\n"
+    "void _miku_read_string(char**buf,int*cap){\n"
+    "  int len=0;\n"
+    "  while(1){fgets(*buf+len,*cap-len,stdin);\n"
+    "    len=_miku_len(*buf);\n"
+    "    if((*buf)[len-1]=='\\n'){(*buf)[len-1]='\\0';break;}\n"
+    "    *cap*=2;*buf=(char*)realloc(*buf,*cap);}}\n"
     "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
 } ;
 
@@ -130,8 +136,12 @@ comando : declaracao             { $$.traducao = $1.traducao; }
         }
         | TK_READ '(' TK_ID ')' ';' { 
             Variavel* v = buscarVariavel($3.label);
-            string fmt = (v->tipo == "float") ? "%f" : "%d";
-            $$.traducao = "\tscanf(\"" + fmt + "\", &" + v->label + ");\n";
+            if (v->tipo == "string") {
+                $$.traducao = "\t_miku_read_string(&" + v->label + ", &" + v->label + "_cap);\n";
+            } else {
+                string fmt = (v->tipo == "float") ? "%f" : "%d";
+                $$.traducao = "\tscanf(\"" + fmt + "\", &" + v->label + ");\n";
+            }
         }
         | TK_BREAK ';' {
             if (stack_break.empty()) erroSemantico("comando 'break' fora de um laco de repeticao.");

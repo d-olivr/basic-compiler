@@ -1,0 +1,9 @@
+int x;
+x = 0;
+if (x > 0) {
+    string msg = "positivo";
+    print(msg);
+} else {
+    string msg = "negativo";
+    print(msg);
+}
