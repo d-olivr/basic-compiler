@@ -1,0 +1,37 @@
+int i;
+int j;
+float media;
+bool ativo;
+char simbolo;
+
+// Inicialização
+i = 0;
+j = 0;
+media = 0.0;
+ativo = true;
+
+// 1. Teste de Casting Implícito (int + float)
+media = media + 10; 
+
+// 2. Teste de Operadores Lógicos e Condicional
+if (ativo && media > 5.0) {
+    // 3. Teste de Loop FOR com incremento
+    for (i = 0; i < 3; i = i + 1) {
+        
+        // 4. Teste de Loop WHILE aninhado
+        j = 0;
+        while (j < i) {
+            print(i);
+            j = j + 1;
+        }
+    }
+} else {
+    // 5. Teste de DO-WHILE
+    do {
+        print(j);
+        j = j + 1;
+    } while (j < 5);
+}
+
+// 6. Finalização e output
+print(media);
