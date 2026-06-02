@@ -19,59 +19,6 @@ This approach allows us to focus on the compilation process itself while leverag
 
 <br>
 
-## 📚 Project Roadmap
-
-<details>
-<summary><h3>Stage I</h3></summary>
-
-- [x] Expressions
-- [x] Types
-  - [x] Boolean
-  - [x] Int
-  - [x] Float
-  - [x] Char
-- [x] Operators
-  - [x] Logical
-  - [x] Arithmetic
-  - [x] Relational
-- [x] Variables
-- [x] Variable assignment
-- [x] Conversion
-  - [x] Implicit
-  - [x] Explicit
-
-</details>
-
-### Stage 2
-- [ ] Block
-- [ ] Context
-- [ ] Global Scope
-- [ ] String
-- [ ] Input and Output Commands
-- [ ] Commands
-  - [ ] if
-  - [ ] if/else
-  - [ ] while
-  - [ ] do/while
-  - [ ] for
-  - [ ] switch
-- [ ] Loop Control
-  - [ ] break
-  - [ ] continue
-### Final stage
-- [ ] Stage I
-- [ ] Stage II
-- [ ] Functions
-- [ ] Arrays/Matrices
-- [ ] Variable Initialization
-- [ ] Array/Matrix Initialization
-- [ ] Compound Operators
-- [ ] Unary Operators
-- [ ] Error Detection
-- [ ] Extras
-
-<br>
-
 ## 🖥️ Execution
 
 ```
