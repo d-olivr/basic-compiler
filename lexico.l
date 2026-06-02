@@ -26,16 +26,17 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 %%
 
 "\n"        { linha++; } 
-[ \t]+      { }
+[ \t\r\xa0]+    { /* ignora espaços, tabs, quebras do windows e espaços fantasmas */ }
 
 "int"       { return TK_TIPO_INT; } 
 "float"     { return TK_TIPO_FLOAT; } 
 "char"      { return TK_TIPO_CHAR; }
+"string"    { return TK_TIPO_STRING; }
 "bool"      { return TK_TIPO_BOOL; }
 
 "true"      { return TK_TRUE; } 
 "false"     { return TK_FALSE; }
-  
+
 "print"     { return TK_PRINT; }
 "read"      { return TK_READ; }
 
@@ -82,6 +83,16 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "}"         { return '}'; }
 ":"         { return ':'; }
 ";"         { return ';'; }
+\"[^\"\n]*\"  {
+    int len = strlen(yytext) - 2; // -2 para descontar as aspas
+    if (len > 4500) {
+        fprintf(stderr, "Erro lexico na linha %d: string literal excede 4500 caracteres (%d)\n", linha, len);
+        exit(1);
+    }
+    yylval.label = yytext;
+    yylval.tipo = "string";
+    return TK_STR_LITERAL;
+}
 
 .           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
 
