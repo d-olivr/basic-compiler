@@ -36,7 +36,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 "true"      { return TK_TRUE; } 
 "false"     { return TK_FALSE; }
-  
+
 "print"     { return TK_PRINT; }
 "read"      { return TK_READ; }
 
