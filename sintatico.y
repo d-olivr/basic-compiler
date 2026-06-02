@@ -121,7 +121,7 @@ S : lista_comandos {
 } ;
 
 lista_comandos : lista_comandos comando { $$.traducao = $1.traducao + $2.traducao; }
-               |                        { $$.traducao = ""; } ;
+                |                        { $$.traducao = ""; } ;
 
 comando : declaracao             { $$.traducao = $1.traducao; }
         | atribuicao             { $$.traducao = $1.traducao; }
@@ -173,12 +173,12 @@ comando : declaracao             { $$.traducao = $1.traducao; }
             string end = $5.traducao;
             
             $$.traducao = start + ":;\n" + 
-                          $3.traducao + 
-                          "\tif (!" + $3.label + ") goto " + end + ";\n" + 
-                          $6.traducao + 
-                          "\tgoto " + start + ";\n" + 
-                          end + ":;\n";
-                          
+                        $3.traducao + 
+                        "\tif (!" + $3.label + ") goto " + end + ";\n" + 
+                        $6.traducao + 
+                        "\tgoto " + start + ";\n" + 
+                        end + ":;\n";
+
             stack_continue.pop();
             stack_break.pop();
         }
@@ -196,12 +196,12 @@ comando : declaracao             { $$.traducao = $1.traducao; }
             string end = $2.tipo;
             
             $$.traducao = start + ":;\n" + 
-                          $3.traducao + 
-                          cont + ":;\n" + 
-                          $6.traducao + 
-                          "\tif (" + $6.label + ") goto " + start + ";\n" +
-                          end + ":;\n";
-                          
+                        $3.traducao + 
+                        cont + ":;\n" + 
+                        $6.traducao + 
+                        "\tif (" + $6.label + ") goto " + start + ";\n" +
+                        end + ":;\n";
+
             stack_continue.pop();
             stack_break.pop();
         }
@@ -219,15 +219,15 @@ comando : declaracao             { $$.traducao = $1.traducao; }
             string inc = $7.tipo;
             
             $$.traducao = $3.traducao + 
-                          start + ":;\n" + 
-                          $5.traducao + 
-                          "\tif (!" + $5.label + ") goto " + end + ";\n" + 
-                          $10.traducao + 
-                          inc + ":;\n" + 
-                          $8.traducao + 
-                          "\tgoto " + start + ";\n" + 
-                          end + ":;\n";
-                          
+                        start + ":;\n" + 
+                        $5.traducao + 
+                        "\tif (!" + $5.label + ") goto " + end + ";\n" + 
+                        $10.traducao + 
+                        inc + ":;\n" + 
+                        $8.traducao + 
+                        "\tgoto " + start + ";\n" + 
+                        end + ":;\n";
+
             stack_continue.pop();
             stack_break.pop();
         }
@@ -253,8 +253,7 @@ comando : declaracao             { $$.traducao = $1.traducao; }
 Bloco : '{' { entrarEscopo(); } lista_comandos '}' { $$.traducao = "\t{\n" + $3.traducao + "\t}\n"; sairEscopo(); };
 
 casos : casos caso { $$.traducao = $1.traducao + $2.traducao; }
-      | /* vazio */ { $$.traducao = ""; }
-      ;
+      | /* vazio */ { $$.traducao = ""; };
 
 caso : TK_CASE TK_NUM ':' lista_comandos {
     string expr = stack_switch_expr.top();
@@ -262,25 +261,25 @@ caso : TK_CASE TK_NUM ':' lista_comandos {
     string next_case = genlabel();
 
     $$.traducao = "\tif (" + expr + " == " + $2.label + ") " + flag + " = 1;\n" +
-                  "\tif (!" + flag + ") goto " + next_case + ";\n" +
-                  $4.traducao +
-                  next_case + ":;\n";
+                "\tif (!" + flag + ") goto " + next_case + ";\n" +
+                $4.traducao +
+                next_case + ":;\n";
 }
 | TK_DEFAULT ':' lista_comandos {
     string flag = stack_switch_flag.top();
     string next_case = genlabel();
 
     $$.traducao = "\t" + flag + " = 1;\n" +
-                  "\tif (!" + flag + ") goto " + next_case + ";\n" +
-                  $3.traducao +
-                  next_case + ":;\n";
+                    "\tif (!" + flag + ") goto " + next_case + ";\n" +
+                    $3.traducao +
+                    next_case + ":;\n";
 }
 ;
 
 tipo : TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
-     | TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
-     | TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; }
-     | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; };
+        | TK_TIPO_FLOAT { $$.tipo = "float"; $$.label = "float"; }
+        | TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; }
+        | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; };
 
 declaracao : tipo TK_ID ';' {
     string varLabel = gentempcode(); 
@@ -326,26 +325,26 @@ atrib_base : TK_ID TK_ATRIB E {
 atribuicao : atrib_base ';' { $$.traducao = $1.traducao; };
 
 E : E '+' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " + " + $3.label + ";\n"; }
-  | E '-' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " - " + $3.label + ";\n"; }
-  | E '*' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " * " + $3.label + ";\n"; }
-  | E '/' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " / " + $3.label + ";\n"; }
-  | E TK_E E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n"; }
-  | E TK_OU E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n"; }
-  | TK_NAO E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; }
-  | E TK_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n"; }
-  | E TK_DIFERENTE E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n"; }
-  | E '<' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n"; }
-  | E '>' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n"; }
-  | E TK_MENOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n"; }
-  | E TK_MAIOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n"; }
-  | '(' E ')' { $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
-  | '(' tipo ')' E %prec CAST { $$.label = gentempcode(); $$.tipo = $2.tipo; vars_temporarias += "\t" + $2.label + " " + $$.label + ";\n"; $$.traducao = $4.traducao + "\t" + $$.label + " = (" + $2.label + ") " + $4.label + ";\n"; }
-  | TK_NUM { if ($1.tipo == "char") { $$.label = $1.label; $$.tipo = $1.tipo; $$.traducao = ""; } else { $$.label = gentempcode(); $$.tipo = $1.tipo; vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = "\t" + $$.label + " = " + $1.label + ";\n"; } }
-  | TK_TRUE { $$.label = "1"; $$.tipo = "bool"; $$.traducao = ""; }
-  | TK_FALSE { $$.label = "0"; $$.tipo = "bool"; $$.traducao = ""; }
-  | TK_ID { Variavel* v = buscarVariavel($1.label); if(v) { $$.label = v->label; $$.tipo = v->tipo; $$.traducao = ""; } else { erroSemantico("Variavel '" + $1.label + "' nao declarada."); }}
-  | TK_STR_LITERAL { $$.label = $1.label; $$.tipo = "string"; $$.traducao = ""; }
-  ;
+    | E '-' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " - " + $3.label + ";\n"; }
+    | E '*' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " * " + $3.label + ";\n"; }
+    | E '/' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " / " + $3.label + ";\n"; }
+    | E TK_E E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n"; }
+    | E TK_OU E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n"; }
+    | TK_NAO E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; }
+    | E TK_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n"; }
+    | E TK_DIFERENTE E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n"; }
+    | E '<' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n"; }
+    | E '>' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n"; }
+    | E TK_MENOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n"; }
+    | E TK_MAIOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n"; }
+    | '(' E ')' { $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
+    | '(' tipo ')' E %prec CAST { $$.label = gentempcode(); $$.tipo = $2.tipo; vars_temporarias += "\t" + $2.label + " " + $$.label + ";\n"; $$.traducao = $4.traducao + "\t" + $$.label + " = (" + $2.label + ") " + $4.label + ";\n"; }
+    | TK_NUM { if ($1.tipo == "char") { $$.label = $1.label; $$.tipo = $1.tipo; $$.traducao = ""; } else { $$.label = gentempcode(); $$.tipo = $1.tipo; vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = "\t" + $$.label + " = " + $1.label + ";\n"; } }
+    | TK_TRUE { $$.label = "1"; $$.tipo = "bool"; $$.traducao = ""; }
+    | TK_FALSE { $$.label = "0"; $$.tipo = "bool"; $$.traducao = ""; }
+    | TK_ID { Variavel* v = buscarVariavel($1.label); if(v) { $$.label = v->label; $$.tipo = v->tipo; $$.traducao = ""; } else { erroSemantico("Variavel '" + $1.label + "' nao declarada."); }}
+    | TK_STR_LITERAL { $$.label = $1.label; $$.tipo = "string"; $$.traducao = ""; }
+    ;
 
 %%
 
