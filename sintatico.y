@@ -106,17 +106,74 @@ S : lista_comandos {
     "#include <stdio.h>\n"
     "#include <stdlib.h>\n"
     "#include <string.h>\n"
-    "\nint _miku_len(char *s){int i=0;while(s[i])i++;return i;}\n" // implementacao manual de strlen -> miku_len
-    "void _miku_strcpy_safe(char**d,int*c,char*s){\n"
-    "  int n=_miku_len(s)+1;\n"
-    "  while(*c<n){int f=n-(*c);*c+=(f<500)?500:1000;}\n"
-    "  *d=(char*)realloc(*d,*c);strcpy(*d,s);}\n"
-    "void _miku_read_string(char**buf,int*cap){\n"
-    "  int len=0;\n"
-    "  while(1){fgets(*buf+len,*cap-len,stdin);\n"
-    "    len=_miku_len(*buf);\n"
-    "    if((*buf)[len-1]=='\\n'){(*buf)[len-1]='\\0';break;}\n"
-    "    *cap*=2;*buf=(char*)realloc(*buf,*cap);}}\n"
+    /* _miku_len em C3E: acessa s[i], testa == 0, incrementa i, retorna i */
+    "\nint _miku_len(char *s) {\n"
+    "\tint i;\n"
+    "\tchar c;\n"
+    "\tint t1;\n"
+    "\ti = 0;\n"
+    "_miku_len_loop:;\n"
+    "\tc = s[i];\n"
+    "\tt1 = (c == 0);\n"
+    "\tif (t1) goto _miku_len_end;\n"
+    "\ti = i + 1;\n"
+    "\tgoto _miku_len_loop;\n"
+    "_miku_len_end:;\n"
+    "\treturn i;\n"
+    "}\n"
+    /* _miku_strcpy_safe em C3E */
+    "void _miku_strcpy_safe(char **d, int *c, char *s) {\n"
+    "\tint n;\n"
+    "\tint t2;\n"
+    "\tint f;\n"
+    "\tint t3;\n"
+    "\tint t4;\n"
+    "\tn = _miku_len(s);\n"
+    "\tn = n + 1;\n"
+    "_miku_cpy_loop:;\n"
+    "\tt2 = (*c < n);\n"
+    "\tif (!t2) goto _miku_cpy_end;\n"
+    "\tf = n - (*c);\n"
+    "\tt3 = (f < 500);\n"
+    "\tif (!t3) goto _miku_cpy_big;\n"
+    "\t*c = *c + 500;\n"
+    "\tgoto _miku_cpy_loop;\n"
+    "_miku_cpy_big:;\n"
+    "\t*c = *c + 1000;\n"
+    "\tgoto _miku_cpy_loop;\n"
+    "_miku_cpy_end:;\n"
+    "\t*d = (char *) realloc(*d, *c);\n"
+    "\tstrcpy(*d, s);\n"
+    "}\n"
+    /* _miku_read_string em C3E */
+    "void _miku_read_string(char **buf, int *cap) {\n"
+    "\tint len;\n"
+    "\tchar t5;\n"
+    "\tint t6;\n"
+    "\tint t7;\n"
+    "\tint t8;\n"
+    "\tint t9;\n"
+    "\tlen = 0;\n"
+    "_miku_rds_loop:;\n"
+    "\tt5 = (char)0;\n"
+    "\tfgets(*buf + len, *cap - len, stdin);\n"
+    "\tlen = _miku_len(*buf);\n"
+    "\tt5 = (*buf)[len - 1];\n"
+    "\tt6 = (t5 == '\\n');\n"
+    "\tif (!t6) goto _miku_rds_no_nl;\n"
+    "\t(*buf)[len - 1] = '\\0';\n"
+    "\tgoto _miku_rds_end;\n"
+    "_miku_rds_no_nl:;\n"
+    "\tt7 = (len > 4500);\n"
+    "\tif (!t7) goto _miku_rds_grow;\n"
+    "\tfprintf(stderr, \"Erro: string de input excede 4500 caracteres\\n\");\n"
+    "\texit(1);\n"
+    "_miku_rds_grow:;\n"
+    "\t*cap = *cap * 2;\n"
+    "\t*buf = (char *) realloc(*buf, *cap);\n"
+    "\tgoto _miku_rds_loop;\n"
+    "_miku_rds_end:;\n"
+    "}\n"
     "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
 } ;
 
@@ -297,16 +354,20 @@ declaracao : tipo TK_ID ';' {
     string varLabel = gentempcode();
     string capLabel = varLabel + "_cap";
     declararVariavel($2.label, "string", varLabel);
-    vars_temporarias += "\tint " + capLabel + " = 1000;\n";
-    vars_temporarias += "\tchar *" + varLabel + " = (char*) malloc(1000);\n";
-    $$.traducao = "\t" + varLabel + "[0] = '\\0';\n";
+    vars_temporarias += "\tint " + capLabel + ";\n";
+    vars_temporarias += "\tchar *" + varLabel + ";\n";
+    $$.traducao = "\t" + capLabel + " = 1000;\n"
+                + "\t" + varLabel + " = (char *) malloc(" + capLabel + ");\n"
+                + "\t" + varLabel + "[0] = '\\0';\n";
 } | TK_TIPO_STRING TK_ID TK_ATRIB TK_STR_LITERAL ';' {
     string varLabel = gentempcode();
     string capLabel = varLabel + "_cap";
     declararVariavel($2.label, "string", varLabel);
-    vars_temporarias += "\tint " + capLabel + " = 1000;\n";
-    vars_temporarias += "\tchar *" + varLabel + " = (char*) malloc(1000);\n";
-    $$.traducao = "\t" + varLabel + "[0] = '\\0';\n"
+    vars_temporarias += "\tint " + capLabel + ";\n";
+    vars_temporarias += "\tchar *" + varLabel + ";\n";
+    $$.traducao = "\t" + capLabel + " = 1000;\n"
+                + "\t" + varLabel + " = (char *) malloc(" + capLabel + ");\n"
+                + "\t" + varLabel + "[0] = '\\0';\n"
                 + "\t_miku_strcpy_safe(&" + varLabel + ", &" + capLabel + ", " + $4.label + ");\n";
 };
 
