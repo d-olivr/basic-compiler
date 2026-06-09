@@ -116,7 +116,6 @@ S : lista_comandos {
     "  while(1){fgets(*buf+len,*cap-len,stdin);\n"
     "    len=_miku_len(*buf);\n"
     "    if((*buf)[len-1]=='\\n'){(*buf)[len-1]='\\0';break;}\n"
-    "    if(len>4500){fprintf(stderr,\"Erro: string de input excede 4500 caracteres\\n\");exit(1);}\n"
     "    *cap*=2;*buf=(char*)realloc(*buf,*cap);}}\n"
     "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
 } ;
