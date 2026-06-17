@@ -44,13 +44,13 @@
      
   ## Final stage
 - [x] Stage I
-- [ ] Stage II
+- [x] Stage II
+- [ ] Unary Operators
+- [ ] Variable Initialization
 - [ ] Functions
 - [ ] Arrays/Matrices
-- [ ] Variable Initialization
 - [ ] Array/Matrix Initialization
 - [ ] Compound Operators
-- [ ] Unary Operators
 - [ ] Error Detection
 - [ ] Extras
 

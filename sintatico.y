@@ -71,6 +71,29 @@ Cast gerarCast(string label, string tipoOriginal, string tipoDestino) {
     return c;
 }
 
+// Função utilitária para gerar código de operadores compostos (+=, -=, *=, /=)
+string gerarAtribuicaoComposta(string idLabel, string op, atributos exp) {
+    Variavel* v = buscarVariavel(idLabel);
+    if (!v) erroSemantico("Variavel '" + idLabel + "' nao declarada.");
+    if (v->tipo == "string") erroSemantico("Operadores compostos nao suportados para strings.");
+
+    string trad = exp.traducao;
+    string lab = exp.label;
+
+    if (v->tipo == "float" && exp.tipo == "int") {
+        Cast c = gerarCast(exp.label, "int", "float");
+        trad += c.traducao;
+        lab = c.label;
+    }
+
+    string temp = gentempcode();
+    vars_temporarias += "\t" + v->tipo + " " + temp + ";\n";
+    trad += "\t" + temp + " = " + v->label + " " + op + " " + lab + ";\n";
+    trad += "\t" + v->label + " = " + temp + ";\n";
+
+    return trad;
+}
+
 int yylex(void);
 void yyerror(string);
 extern FILE *yyin;
@@ -83,6 +106,7 @@ extern FILE *yyin;
 %token TK_BREAK TK_CONTINUE
 %token TK_SWITCH TK_CASE TK_DEFAULT
 %token TK_TIPO_STRING TK_STR_LITERAL
+%token TK_MAIS_IGUAL TK_MENOS_IGUAL TK_VEZES_IGUAL TK_DIV_IGUAL
 
 /* Precedência para resolver o Dangling Else */
 %nonassoc LOWER_THAN_ELSE
@@ -94,7 +118,7 @@ extern FILE *yyin;
 %left '<' '>' TK_MENOR_IGUAL TK_MAIOR_IGUAL
 %left '+' '-'
 %left '*' '/'
-%right TK_NAO
+%right TK_NAO UMINUS UPLUS
 %right CAST
 
 %start S
@@ -381,7 +405,11 @@ atrib_base : TK_ID TK_ATRIB E {
         if (v->tipo == "float" && $3.tipo == "int") { Cast c = gerarCast($3.label, "int", "float"); trad += c.traducao; lab = c.label; }
         $$.traducao = trad + "\t" + v->label + " = " + lab + ";\n";
     }
-};
+}
+| TK_ID TK_MAIS_IGUAL E { $$.traducao = gerarAtribuicaoComposta($1.label, "+", $3); }
+| TK_ID TK_MENOS_IGUAL E { $$.traducao = gerarAtribuicaoComposta($1.label, "-", $3); }
+| TK_ID TK_VEZES_IGUAL E { $$.traducao = gerarAtribuicaoComposta($1.label, "*", $3); }
+| TK_ID TK_DIV_IGUAL E { $$.traducao = gerarAtribuicaoComposta($1.label, "/", $3); };
 
 atribuicao : atrib_base ';' { $$.traducao = $1.traducao; };
 
@@ -392,6 +420,8 @@ E : E '+' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " "
     | E TK_E E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n"; }
     | E TK_OU E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n"; }
     | TK_NAO E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; }
+    | '-' E %prec UMINUS { $$.label = gentempcode(); vars_temporarias += "\t" + $2.tipo + " " + $$.label + ";\n"; $$.tipo = $2.tipo; $$.traducao = $2.traducao + "\t" + $$.label + " = -" + $2.label + ";\n"; }
+    | '+' E %prec UPLUS { $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
     | E TK_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n"; }
     | E TK_DIFERENTE E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n"; }
     | E '<' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n"; }

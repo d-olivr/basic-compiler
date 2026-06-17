@@ -59,6 +59,11 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 {ID}        { yylval.label = yytext; return TK_ID; }
 
+"+="        { return TK_MAIS_IGUAL; }
+"-="        { return TK_MENOS_IGUAL; }
+"*="        { return TK_VEZES_IGUAL; }
+"/="        { return TK_DIV_IGUAL; }
+
 "+"         { return '+'; }
 "-"         { return '-'; }
 "*"         { return '*'; }
