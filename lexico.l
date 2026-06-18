@@ -25,7 +25,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 %%
 
-"\n"        { linha++; } 
+"\n"            { linha++; } 
 [ \t\r\xa0]+    { /* ignora espaços, tabs, quebras do windows e espaços fantasmas */ }
 
 "int"       { return TK_TIPO_INT; } 
@@ -84,6 +84,8 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 "("         { return '('; }
 ")"         { return ')'; }
+"["         { return '['; }
+"]"         { return ']'; }
 "{"         { return '{'; }
 "}"         { return '}'; }
 ":"         { return ':'; }
