@@ -1,0 +1,36 @@
+int a;
+int b;
+float x;
+float y;
+
+a = 5;
+b = 2;
+x = 1.5;
+y = 4.5;
+
+
+int resultado_int;
+resultado_int = a + b + 3; 
+print(resultado_int); 
+
+
+float resultado_float;
+resultado_float = x + y + 2.0; 
+print(resultado_float); 
+
+
+float misto1;
+misto1 = a + x; 
+print(misto1); 
+
+
+
+float misto2;
+misto2 = y + b; 
+print(misto2); 
+
+
+
+float complexo;
+complexo = a + x + b + y; 
+print(complexo); 
