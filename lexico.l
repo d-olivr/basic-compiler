@@ -54,6 +54,9 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "case"      { return TK_CASE; }
 "default"   { return TK_DEFAULT; }
 
+"void"      { return TK_TIPO_VOID; }
+"return"    { return TK_RETURN; }
+
 \'.\'       { yylval.label = yytext; yylval.tipo = "char"; return TK_NUM; } 
 {NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; } 
 {NUM_INT}   { yylval.label = yytext; yylval.tipo = "int";   return TK_NUM; } 
@@ -93,6 +96,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "}"         { return '}'; }
 ":"         { return ':'; }
 ";"         { return ';'; }
+","         { return ','; }
 \"[^\"\n]*\"  {
     int len = strlen(yytext) - 2; // -2 para descontar as aspas
     if (len > 4500) {

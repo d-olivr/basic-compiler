@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <map>
 #include <stack>
+#include <vector>
 #include <cstdlib>
 
 #define YYSTYPE atributos
@@ -39,6 +40,85 @@ stack<map<string, Variavel>> pilhaEscopos;
 void entrarEscopo() { pilhaEscopos.push(map<string, Variavel>()); }
 void sairEscopo() { pilhaEscopos.pop(); }
 
+/* ===================== Suporte a Subprogramas (Funcoes) ===================== */
+
+struct FuncInfo {
+    string tipoRetorno;          // "void", "int", "float", "bool", "char"
+    vector<string> tiposParam;   // tipos escalares dos parametros, na ordem
+    bool definida;                // true depois que o corpo foi processado
+};
+
+map<string, FuncInfo> tabelaFuncoes;
+
+// Pilha de buffers de variaveis temporarias: cada funcao tem o seu proprio bloco
+// de declaracoes locais/temporarias, em vez de um unico buffer global (vars_temporarias
+// continua existindo e representa o buffer da funcao "atual", no topo da pilha).
+stack<string> pilhaBuffersTemp;
+
+// Pilha com o tipo de retorno esperado pela funcao que esta sendo compilada agora.
+// Permite checar semanticamente o comando 'return' e tambem detectar 'return' fora de funcao.
+stack<string> pilhaTipoRetorno;
+
+// Pilha com o label de saida (fim) de cada funcao, para o 'return' poder "goto" até o
+// epilogo da funcao mesmo quando aparece no meio do codigo, antes do final do bloco.
+stack<string> pilhaLabelFimFuncao;
+
+// Pilha com o label da variavel que guarda o valor de retorno de cada funcao ativa
+stack<string> pilhaLabelRetorno;
+
+// Acumula (tipo, nome) dos parametros formais enquanto a lista de parametros de uma
+// definicao de funcao esta sendo reconhecida. Empilha um vetor novo ao abrir os
+// parenteses da funcao e usa o topo para ir agregando cada parametro.
+stack<vector<pair<string,string>>> pilhaParamsFormais;
+
+// Acumula os atributos (tipo/label/traducao) dos argumentos reais enquanto uma
+// chamada de funcao esta sendo reconhecida em uma expressao.
+stack<vector<atributos>> pilhaArgsReais;
+
+// Guarda a assinatura C (ja montada como string) da funcao que esta sendo
+// compilada agora, entre o fechamento dos parenteses dos parametros e o
+// fechamento do Bloco do corpo da funcao.
+stack<string> pilhaAssinaturasFuncao;
+
+void erroSemantico(string msg);
+Variavel* buscarVariavel(string nome);
+
+FuncInfo* buscarFuncao(string nome) {
+    auto it = tabelaFuncoes.find(nome);
+    if (it == tabelaFuncoes.end()) return nullptr;
+    return &it->second;
+}
+
+void declararAssinaturaFuncao(string nome, string tipoRetorno, vector<string> tiposParam) {
+    if (tabelaFuncoes.count(nome)) {
+        erroSemantico("Funcao '" + nome + "' ja foi declarada anteriormente.");
+    }
+    if (buscarVariavel(nome)) {
+        erroSemantico("Identificador '" + nome + "' ja esta em uso como variavel.");
+    }
+    tabelaFuncoes[nome] = { tipoRetorno, tiposParam, false };
+}
+
+void marcarFuncaoDefinida(string nome) {
+    tabelaFuncoes[nome].definida = true;
+}
+
+// Salva o buffer atual de variaveis temporarias (da funcao "de fora") e comeca um buffer
+// novo e vazio para a funcao que esta sendo compilada agora.
+void entrarFuncaoBuffer() {
+    pilhaBuffersTemp.push(vars_temporarias);
+    vars_temporarias = "";
+}
+
+// Devolve o buffer da funcao que acabou de ser compilada (para ser usado no corpo
+// gerado dessa funcao) e restaura o buffer da funcao "de fora".
+string sairFuncaoBuffer() {
+    string bufferDaFuncao = vars_temporarias;
+    vars_temporarias = pilhaBuffersTemp.top();
+    pilhaBuffersTemp.pop();
+    return bufferDaFuncao;
+}
+
 void declararVariavel(string nome, string tipo, string label) { 
     pilhaEscopos.top()[nome] = {tipo, label, 0, ""}; 
 }
@@ -47,9 +127,17 @@ void declararVariavelArray(string nome, string tipo, string label, int is_array,
     pilhaEscopos.top()[nome] = {tipo, label, is_array, col_size};
 }
 
+// Pilha com a profundidade de pilhaEscopos no momento em que cada funcao foi
+// aberta. Enquanto estivermos dentro de uma funcao, buscarVariavel nao deve
+// atravessar essa fronteira: o corpo de uma funcao so pode ver seus proprios
+// parametros e variaveis locais, nunca variaveis de fora (do main ou de outra
+// funcao), exatamente como em C.
+stack<size_t> pilhaFronteiraEscopoFuncao;
+
 Variavel* buscarVariavel(string nome) {
     auto copia = pilhaEscopos;
-    while (!copia.empty()) {
+    size_t limite = pilhaFronteiraEscopoFuncao.empty() ? 0 : pilhaFronteiraEscopoFuncao.top();
+    while (copia.size() > limite) {
         if (copia.top().count(nome)) return &copia.top()[nome];
         copia.pop();
     }
@@ -57,6 +145,7 @@ Variavel* buscarVariavel(string nome) {
 }
 
 string tipoResultante(string t1, string t2) {
+    if (t1 == "void" || t2 == "void") return "erro";
     if (t1 == "bool" || t2 == "bool") return "erro";
     if (t1 == "char" || t2 == "char") return "erro"; 
     if (t1 == t2) return t1;
@@ -66,7 +155,8 @@ string tipoResultante(string t1, string t2) {
 
 void erroSemantico(string msg) { cerr << "Erro Semantico na linha " << linha << ": " << msg << endl; exit(1); }
 
-string gentempcode(); 
+string gentempcode();
+
 string genlabel() { label_qnt++; return "L" + to_string(label_qnt); }
 
 struct Cast { string label; string traducao; };
@@ -80,10 +170,139 @@ Cast gerarCast(string label, string tipoOriginal, string tipoDestino) {
     return c;
 }
 
+// Gera o codigo de uma chamada de funcao ja validada (aridade e tipos de cada
+// argumento), aplicando cast implicito int->float argumento a argumento quando
+// necessario, igual ao que ja se faz para atribuicoes e operadores binarios.
+// 'resultado' recebe o atributo de retorno preenchido (label/tipo) quando a
+// funcao nao for void; para void, label fica vazio.
+atributos gerarChamadaFuncao(string nomeFuncao, vector<atributos>& argumentos) {
+    FuncInfo* f = buscarFuncao(nomeFuncao);
+    if (!f) erroSemantico("Funcao '" + nomeFuncao + "' nao declarada.");
+
+    if (argumentos.size() != f->tiposParam.size()) {
+        erroSemantico("Funcao '" + nomeFuncao + "' espera " + to_string(f->tiposParam.size())
+            + " argumento(s), mas foi chamada com " + to_string(argumentos.size()) + ".");
+    }
+
+    string trad = "";
+    vector<string> labelsFinais;
+
+    for (size_t i = 0; i < argumentos.size(); i++) {
+        string tipoEsperado = f->tiposParam[i];
+        atributos arg = argumentos[i];
+        trad += arg.traducao;
+        string lab = arg.label;
+
+        if (tipoEsperado == "float" && arg.tipo == "int") {
+            Cast c = gerarCast(arg.label, "int", "float");
+            trad += c.traducao;
+            lab = c.label;
+        } else if (tipoEsperado != arg.tipo) {
+            erroSemantico("Argumento " + to_string(i + 1) + " da funcao '" + nomeFuncao
+                + "' tem tipo incompativel: esperado '" + tipoEsperado + "', encontrado '" + arg.tipo + "'.");
+        }
+        labelsFinais.push_back(lab);
+    }
+
+    string chamada = nomeFuncao + "(";
+    for (size_t i = 0; i < labelsFinais.size(); i++) {
+        if (i > 0) chamada += ", ";
+        chamada += labelsFinais[i];
+    }
+    chamada += ")";
+
+    atributos resultado;
+    resultado.tipo = f->tipoRetorno;
+
+    if (f->tipoRetorno == "void") {
+        trad += "\t" + chamada + ";\n";
+        resultado.label = "";
+    } else {
+        resultado.label = gentempcode();
+        vars_temporarias += "\t" + f->tipoRetorno + " " + resultado.label + ";\n";
+        trad += "\t" + resultado.label + " = " + chamada + ";\n";
+    }
+    resultado.traducao = trad;
+    return resultado;
+}
+
+// abrirFuncao: chamada apos reconhecer "tipoRetorno nome (" e a lista de parametros
+// (ja acumulada em pilhaParamsFormais.top()). Registra a assinatura, abre o escopo
+// da funcao com sua fronteira, declara os parametros como variaveis locais e monta
+// a assinatura C, deixando tudo pronto para o Bloco do corpo ser parseado.
+string abrirFuncao(string tipoRet, string labelTipoC, string nome) {
+    vector<pair<string,string>> params = pilhaParamsFormais.top();
+    pilhaParamsFormais.pop();
+
+    vector<string> tiposParam;
+    for (auto& p : params) tiposParam.push_back(p.first);
+    declararAssinaturaFuncao(nome, tipoRet, tiposParam);
+
+    string assinatura = labelTipoC + " " + nome + "(";
+    for (size_t i = 0; i < params.size(); i++) {
+        if (i > 0) assinatura += ", ";
+        assinatura += params[i].first + " p_" + params[i].second;
+    }
+    if (params.empty()) assinatura += "void";
+    assinatura += ")";
+
+    entrarEscopo();
+    pilhaFronteiraEscopoFuncao.push(pilhaEscopos.size() - 1);
+    entrarFuncaoBuffer();
+
+    string labelRetorno = "";
+    if (tipoRet != "void") {
+        labelRetorno = gentempcode();
+        vars_temporarias += "\t" + labelTipoC + " " + labelRetorno + ";\n";
+    }
+    string labelFim = "_miku_fim_" + nome;
+
+    pilhaTipoRetorno.push(tipoRet);
+    pilhaLabelFimFuncao.push(labelFim);
+    pilhaLabelRetorno.push(labelRetorno);
+
+    for (auto& p : params) {
+        declararVariavel(p.second, p.first, "p_" + p.second);
+    }
+
+    pilhaAssinaturasFuncao.push(assinatura);
+    return assinatura;
+}
+
+// fecharFuncao: chamada apos o Bloco do corpo ja ter sido traduzido (corpoTraduzido).
+// Monta a funcao C completa (assinatura + locais + corpo + epilogo de retorno) e
+// restaura todo o contexto (escopo, buffer de temporarios, pilhas de funcao).
+string fecharFuncao(string nome, string corpoTraduzido) {
+    string assinatura = pilhaAssinaturasFuncao.top();
+    pilhaAssinaturasFuncao.pop();
+
+    string labelRetorno = pilhaLabelRetorno.top();
+    string labelFim = pilhaLabelFimFuncao.top();
+    string tipoRet = pilhaTipoRetorno.top();
+
+    string bufferLocal = sairFuncaoBuffer();
+
+    string corpo = assinatura + " {\n" + bufferLocal + "\n" + corpoTraduzido
+                 + labelFim + ":;\n"
+                 + (tipoRet != "void" ? ("\treturn " + labelRetorno + ";\n") : "\treturn;\n")
+                 + "}\n\n";
+
+    marcarFuncaoDefinida(nome);
+
+    sairEscopo();
+    pilhaFronteiraEscopoFuncao.pop();
+    pilhaTipoRetorno.pop();
+    pilhaLabelFimFuncao.pop();
+    pilhaLabelRetorno.pop();
+
+    return corpo;
+}
+
 string gerarAtribuicaoComposta(string idLabel, string op, atributos exp) {
     Variavel* v = buscarVariavel(idLabel);
     if (!v) erroSemantico("Variavel '" + idLabel + "' nao declarada.");
     if (v->tipo == "string") erroSemantico("Operadores compostos nao suportados para strings.");
+    if (exp.tipo == "void") erroSemantico("Nao e possivel usar o resultado de uma funcao 'void' em uma atribuicao composta.");
 
     string trad = exp.traducao;
     string lab = exp.label;
@@ -106,6 +325,7 @@ string gerarAtribuicaoCompostaArray(string idLabel, string op, atributos exp1, a
     Variavel* v = buscarVariavel(idLabel);
     if (!v) erroSemantico("Variavel '" + idLabel + "' nao declarada.");
     if (v->tipo == "string") erroSemantico("Operadores compostos nao suportados para strings.");
+    if (exp_val.tipo == "void") erroSemantico("Nao e possivel usar o resultado de uma funcao 'void' em uma atribuicao composta.");
 
     string trad = exp1.traducao;
     if (exp2) trad += exp2->traducao;
@@ -148,6 +368,7 @@ extern FILE *yyin;
 %token TK_IF TK_ELSE TK_WHILE TK_FOR TK_DO
 %token TK_BREAK TK_CONTINUE
 %token TK_SWITCH TK_CASE TK_DEFAULT
+%token TK_TIPO_VOID TK_RETURN
 %token TK_TIPO_STRING TK_STR_LITERAL
 %token TK_MAIS_IGUAL TK_MENOS_IGUAL TK_VEZES_IGUAL TK_DIV_IGUAL
 %token TK_POW TK_MOD
@@ -169,7 +390,7 @@ extern FILE *yyin;
 
 %%
 
-S : lista_comandos {
+S : lista_top {
     codigo_gerado = "/*__________________________\n\n★  MIKU COMPILER (^_^)  ★\n__________________________*/\n\n"
     "#include <stdio.h>\n"
     "#include <stdlib.h>\n"
@@ -239,8 +460,22 @@ S : lista_comandos {
     "\tgoto _miku_rds_loop;\n"
     "_miku_rds_end:;\n"
     "}\n"
-    "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
+    + $1.tipo  /* corpo das funcoes do usuario, ja traduzido para C, na ordem em que foram definidas */
+    + "\nint main(void) {\n" + vars_temporarias + "\n" + $1.traducao + "\treturn 0;\n}\n";
 } ;
+
+/* lista_top.tipo = corpo das funcoes acumulado, na ordem de definicao (cada funcao
+   so pode chamar funcoes ja definidas antes dela no arquivo-fonte, ou a si mesma
+   recursivamente; nao ha suporte a chamada para frente nem a recursao mutua).
+   lista_top.traducao = comandos soltos acumulados (corpo implicito da main) */
+lista_top : lista_top unidade_top {
+                $$.tipo  = $1.tipo  + $2.tipo;
+                $$.traducao = $1.traducao + $2.traducao;
+            }
+          | { $$.tipo = ""; $$.traducao = ""; } ;
+
+unidade_top : funcao  { $$.tipo = $1.tipo; $$.traducao = ""; }
+            | comando  { $$.tipo = ""; $$.traducao = $1.traducao; } ;
 
 lista_comandos : lista_comandos comando { $$.traducao = $1.traducao + $2.traducao; }
                |                        { $$.traducao = ""; } ;
@@ -250,6 +485,7 @@ comando : declaracao             { $$.traducao = $1.traducao; }
         | E ';'                  { $$.traducao = $1.traducao; }
         | Bloco                  { $$.traducao = $1.traducao; }
         | TK_PRINT '(' E ')' ';' {
+            if ($3.tipo == "void") erroSemantico("Nao e possivel imprimir o resultado de uma funcao 'void'.");
             string fmt;
             if ($3.tipo == "float") fmt = "%f";
             else if ($3.tipo == "string") fmt = "%s";
@@ -330,6 +566,35 @@ comando : declaracao             { $$.traducao = $1.traducao; }
             if (stack_continue.empty()) erroSemantico("comando 'continue' fora de um laco de repeticao.");
             $$.traducao = "\tgoto " + stack_continue.top() + ";\n";
         }
+        | TK_RETURN ';' {
+            if (pilhaTipoRetorno.empty()) erroSemantico("comando 'return' fora de uma funcao.");
+            if (pilhaTipoRetorno.top() != "void") {
+                erroSemantico("Funcao deve retornar um valor do tipo '" + pilhaTipoRetorno.top() + "', mas 'return' foi usado sem expressao.");
+            }
+            $$.traducao = "\tgoto " + pilhaLabelFimFuncao.top() + ";\n";
+        }
+        | TK_RETURN E ';' {
+            if (pilhaTipoRetorno.empty()) erroSemantico("comando 'return' fora de uma funcao.");
+            string tipoEsperado = pilhaTipoRetorno.top();
+            if (tipoEsperado == "void") {
+                erroSemantico("Funcao do tipo 'void' nao pode retornar um valor.");
+            }
+
+            string trad = $2.traducao;
+            string lab = $2.label;
+
+            if (tipoEsperado == "float" && $2.tipo == "int") {
+                Cast c = gerarCast($2.label, "int", "float");
+                trad += c.traducao;
+                lab = c.label;
+            } else if (tipoEsperado != $2.tipo) {
+                erroSemantico("Tipo de retorno incompativel: esperado '" + tipoEsperado + "', encontrado '" + $2.tipo + "'.");
+            }
+
+            trad += "\t" + pilhaLabelRetorno.top() + " = " + lab + ";\n";
+            trad += "\tgoto " + pilhaLabelFimFuncao.top() + ";\n";
+            $$.traducao = trad;
+        }
         | TK_IF '(' E ')' Bloco %prec LOWER_THAN_ELSE {
             string l1 = genlabel();
             $$.traducao = $3.traducao + "\tif (!" + $3.label + ") goto " + l1 + ";\n" + $5.traducao + l1 + ":;\n";
@@ -409,12 +674,70 @@ tipo : TK_TIPO_INT   { $$.tipo = "int";   $$.label = "int"; }
      | TK_TIPO_BOOL  { $$.tipo = "bool";  $$.label = "int"; }
      | TK_TIPO_CHAR  { $$.tipo = "char";  $$.label = "char"; };
 
+/* ===================== Argumentos de chamada de funcao ===================== */
+/* Os atributos sao acumulados em pilhaArgsReais.top(), empilhado antes de
+   'lista_argumentos' ser reconhecida (ver regra de chamada de funcao em E). */
+
+lista_argumentos : argumentos_nao_vazios { }
+                  | /* vazio, chamada sem argumentos */ { } ;
+
+argumentos_nao_vazios : E {
+                            pilhaArgsReais.top().push_back($1);
+                        }
+                       | argumentos_nao_vazios ',' E {
+                            pilhaArgsReais.top().push_back($3);
+                        } ;
+
+/* ===================== Parametros formais de uma funcao ===================== */
+/* Apenas escalares (int/float/bool/char) sao permitidos como parametro, nao
+   vetores/matrizes. Os pares (tipo, nome) sao acumulados em pilhaParamsFormais.top(),
+   empilhado antes de 'lista_parametros' ser reconhecida (ver regra 'funcao'). */
+
+lista_parametros : parametros_nao_vazios { }
+                  | /* vazio, funcao sem parametros */ { } ;
+
+parametros_nao_vazios : parametro { }
+                       | parametros_nao_vazios ',' parametro { } ;
+
+parametro : tipo TK_ID {
+                pilhaParamsFormais.top().push_back({$1.tipo, $2.label});
+            } ;
+
+/* ===================== Definicao de Subprograma (Funcao) ===================== */
+/* funcao.label = prototipo C da funcao (assinatura ; ), para permitir chamadas
+/* ===================== Definicao de Subprograma (Funcao) ===================== */
+/* funcao.tipo = definicao completa da funcao em C (assinatura + corpo).
+   Ha duas alternativas (tipo escalar e TK_TIPO_VOID) em vez de um nao-terminal
+   "tipo_retorno" intermediario: um nao-terminal assim forcaria o parser a reduzir
+   'tipo' antes de ver o TK_ID seguinte, o que cria conflito com 'declaracao'
+   (que tambem comeca com 'tipo TK_ID'). Mantendo o terminal sem reducao precoce,
+   o parser LALR(1) decide naturalmente ao ver '(' depois do TK_ID. */
+funcao : tipo TK_ID '(' {
+            pilhaParamsFormais.push(vector<pair<string,string>>());
+        } lista_parametros ')' {
+            abrirFuncao($1.tipo, $1.label, $2.label);
+        } Bloco {
+            $$.tipo = fecharFuncao($2.label, $8.traducao);
+            $$.label = ""; // prototipos C nao sao necessarios: cada funcao referencia apenas funcoes ja definidas antes dela
+            $$.traducao = "";
+        }
+       | TK_TIPO_VOID TK_ID '(' {
+            pilhaParamsFormais.push(vector<pair<string,string>>());
+        } lista_parametros ')' {
+            abrirFuncao("void", "void", $2.label);
+        } Bloco {
+            $$.tipo = fecharFuncao($2.label, $8.traducao);
+            $$.label = "";
+            $$.traducao = "";
+        } ;
+
 declaracao : tipo TK_ID ';' {
     string varLabel = gentempcode(); 
     declararVariavel($2.label, $1.tipo, varLabel);
     vars_temporarias += "\t" + $1.label + " " + varLabel + ";\n"; 
     $$.traducao = "";
 } | tipo TK_ID TK_ATRIB E ';' {
+    if ($4.tipo == "void") erroSemantico("Nao e possivel atribuir o resultado de uma funcao 'void' a uma variavel.");
     string varLabel = gentempcode(); 
     declararVariavel($2.label, $1.tipo, varLabel);
     vars_temporarias += "\t" + $1.label + " " + varLabel + ";\n";
@@ -478,6 +801,7 @@ atrib_base : TK_ID TK_ATRIB E {
     Variavel* v = buscarVariavel($1.label);
     if (!v) erroSemantico("Variavel '" + $1.label + "' nao declarada.");
     if (v->is_array != 0) erroSemantico("Uso incorreto de vetor/matriz. Especifique os indices.");
+    if ($3.tipo == "void") erroSemantico("Nao e possivel atribuir o resultado de uma funcao 'void' a uma variavel.");
     string trad = $3.traducao; string lab = $3.label;
     if (v->tipo == "string") {
         $$.traducao = trad + "\t_miku_strcpy_safe(&" + v->label + ", &" + v->label + "_cap, " + lab + ");\n";
@@ -498,6 +822,7 @@ atrib_base : TK_ID TK_ATRIB E {
     Variavel* v = buscarVariavel($1.label);
     if (!v) erroSemantico("Variavel '" + $1.label + "' nao declarada.");
     if (v->is_array != 1) erroSemantico("Variavel '" + $1.label + "' nao eh vetor.");
+    if ($6.tipo == "void") erroSemantico("Nao e possivel atribuir o resultado de uma funcao 'void' a uma variavel.");
     string trad = $3.traducao + $6.traducao; string lab = $6.label;
     if (v->tipo == "float" && $6.tipo == "int") { Cast c = gerarCast($6.label, "int", "float"); trad += c.traducao; lab = c.label; }
     if (v->tipo == "int" && $6.tipo == "float") erroSemantico("Nao e possivel atribuir float a int sem cast explicito. Use (int).");
@@ -514,6 +839,7 @@ atrib_base : TK_ID TK_ATRIB E {
     Variavel* v = buscarVariavel($1.label);
     if (!v) erroSemantico("Variavel '" + $1.label + "' nao declarada.");
     if (v->is_array != 2) erroSemantico("Variavel '" + $1.label + "' nao eh matriz.");
+    if ($9.tipo == "void") erroSemantico("Nao e possivel atribuir o resultado de uma funcao 'void' a uma variavel.");
     string trad = $3.traducao + $6.traducao + $9.traducao; string lab = $9.label;
     if (v->tipo == "float" && $9.tipo == "int") { Cast c = gerarCast($9.label, "int", "float"); trad += c.traducao; lab = c.label; }
     string calcIndex = gentempcode();
@@ -644,9 +970,9 @@ E : E '+' E {
 
       $$.traducao = trad1 + trad3 + "\t" + $$.label + " = " + lab1 + " / " + lab3 + ";\n";
   }
-  | E TK_E E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n"; }
-  | E TK_OU E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n"; }
-  | TK_NAO E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; }
+  | E TK_E E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n"; }
+  | E TK_OU E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n"; }
+  | TK_NAO E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; }
   | '-' E %prec UMINUS { 
       if ($2.tipo != "int" && $2.tipo != "float") {
           erroSemantico("Operador unario '-' nao suportado para o tipo " + $2.tipo);
@@ -661,12 +987,12 @@ E : E '+' E {
           erroSemantico("Operador unario '+' nao suportado para o tipo " + $2.tipo);
       }
       $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
-  | E TK_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n"; }
-  | E TK_DIFERENTE E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n"; }
-  | E '<' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n"; }
-  | E '>' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n"; }
-  | E TK_MENOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n"; }
-  | E TK_MAIOR_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n"; }
+  | E TK_IGUAL E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n"; }
+  | E TK_DIFERENTE E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n"; }
+  | E '<' E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n"; }
+  | E '>' E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " > " + $3.label + ";\n"; }
+  | E TK_MENOR_IGUAL E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " <= " + $3.label + ";\n"; }
+  | E TK_MAIOR_IGUAL E { $$.tipo = "bool"; $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " >= " + $3.label + ";\n"; }
   | '(' E ')' { $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
   | '(' tipo ')' E %prec CAST { $$.label = gentempcode(); $$.tipo = $2.tipo; vars_temporarias += "\t" + $2.label + " " + $$.label + ";\n"; $$.traducao = $4.traducao + "\t" + $$.label + " = (" + $2.label + ") " + $4.label + ";\n"; }
   | TK_NUM { if ($1.tipo == "char") { $$.label = $1.label; $$.tipo = $1.tipo; $$.traducao = ""; } else { $$.label = gentempcode(); $$.tipo = $1.tipo; vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = "\t" + $$.label + " = " + $1.label + ";\n"; } }
@@ -703,6 +1029,17 @@ E : E '+' E {
       vars_temporarias += "\t" + v->tipo + " " + $$.label + ";\n";
       $$.tipo = v->tipo;
       $$.traducao = $3.traducao + $6.traducao + indexCode + "\t" + $$.label + " = " + v->label + "[" + calcIndex + "];\n";
+  }
+  /* Chamada de funcao usada como expressao (ex: x = soma(1, 2) + 3) */
+  | TK_ID '(' {
+      pilhaArgsReais.push(vector<atributos>());
+  } lista_argumentos ')' {
+      vector<atributos> argumentos = pilhaArgsReais.top();
+      pilhaArgsReais.pop();
+      atributos r = gerarChamadaFuncao($1.label, argumentos);
+      $$.label = r.label;
+      $$.tipo = r.tipo;
+      $$.traducao = r.traducao;
   }
   | TK_STR_LITERAL { $$.label = $1.label; $$.tipo = "string"; $$.traducao = ""; }
   /* Operador de resto (%)*/
