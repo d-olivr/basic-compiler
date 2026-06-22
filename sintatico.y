@@ -477,15 +477,139 @@ atrib_base : TK_ID TK_ATRIB E {
 
 atribuicao : atrib_base ';' { $$.traducao = $1.traducao; };
 
-E : E '+' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " + " + $3.label + ";\n"; }
-  | E '-' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " - " + $3.label + ";\n"; }
-  | E '*' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " * " + $3.label + ";\n"; }
-  | E '/' E { $$.label = gentempcode(); vars_temporarias += "\t" + $1.tipo + " " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " / " + $3.label + ";\n"; }
+E : E '+' E {
+      // 1. Determina o tipo resultante da operação através da tabela semântica
+      string tipo_res = tipoResultante($1.tipo, $3.tipo);
+      if (tipo_res == "erro") {
+          erroSemantico("Operacao de soma (+) invalida entre os tipos: " + $1.tipo + " e " + $3.tipo);
+      }
+
+      // 2. Propaga o tipo correto para o nó atual da árvore
+      $$.tipo = tipo_res;
+      $$.label = gentempcode();
+      vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+      // Variables auxiliares para não perder o estado original
+      string trad1 = $1.traducao;
+      string lab1 = $1.label;
+      string trad3 = $3.traducao;
+      string lab3 = $3.label;
+
+      // 3. Aplica a coerção (cast) implícita se houver mistura de tipos
+      if ($1.tipo == "int" && $3.tipo == "float") {
+          Cast c = gerarCast($1.label, "int", "float");
+          trad1 += c.traducao;
+          lab1 = c.label;
+      } else if ($1.tipo == "float" && $3.tipo == "int") {
+          Cast c = gerarCast($3.label, "int", "float");
+          trad3 += c.traducao;
+          lab3 = c.label;
+      }
+
+      // 4. Junta tudo na tradução final com os labels atualizados
+      $$.traducao = trad1 + trad3 + "\t" + $$.label + " = " + lab1 + " + " + lab3 + ";\n";
+  }
+
+  | E '-' E {
+      string tipo_res = tipoResultante($1.tipo, $3.tipo);
+      if (tipo_res == "erro") {
+          erroSemantico("Operacao de subtracao (-) invalida entre os tipos: " + $1.tipo + " e " + $3.tipo);
+      }
+
+      $$.tipo = tipo_res;
+      $$.label = gentempcode();
+      vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+      string trad1 = $1.traducao;
+      string lab1 = $1.label;
+      string trad3 = $3.traducao;
+      string lab3 = $3.label;
+
+      if ($1.tipo == "int" && $3.tipo == "float") {
+          Cast c = gerarCast($1.label, "int", "float");
+          trad1 += c.traducao;
+          lab1 = c.label;
+      } else if ($1.tipo == "float" && $3.tipo == "int") {
+          Cast c = gerarCast($3.label, "int", "float");
+          trad3 += c.traducao;
+          lab3 = c.label;
+      }
+
+      $$.traducao = trad1 + trad3 + "\t" + $$.label + " = " + lab1 + " - " + lab3 + ";\n";
+  }
+
+  | E '*' E {
+      string tipo_res = tipoResultante($1.tipo, $3.tipo);
+      if (tipo_res == "erro") {
+          erroSemantico("Operacao de multiplicacao (*) invalida entre os tipos: " + $1.tipo + " e " + $3.tipo);
+      }
+
+      $$.tipo = tipo_res;
+      $$.label = gentempcode();
+      vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+      string trad1 = $1.traducao;
+      string lab1 = $1.label;
+      string trad3 = $3.traducao;
+      string lab3 = $3.label;
+
+      if ($1.tipo == "int" && $3.tipo == "float") {
+          Cast c = gerarCast($1.label, "int", "float");
+          trad1 += c.traducao;
+          lab1 = c.label;
+      } else if ($1.tipo == "float" && $3.tipo == "int") {
+          Cast c = gerarCast($3.label, "int", "float");
+          trad3 += c.traducao;
+          lab3 = c.label;
+      }
+
+      $$.traducao = trad1 + trad3 + "\t" + $$.label + " = " + lab1 + " * " + lab3 + ";\n";
+  }
+
+  | E '/' E {
+      string tipo_res = tipoResultante($1.tipo, $3.tipo);
+      if (tipo_res == "erro") {
+          erroSemantico("Operacao de divisao (/) invalida entre os tipos: " + $1.tipo + " e " + $3.tipo);
+      }
+
+      $$.tipo = tipo_res;
+      $$.label = gentempcode();
+      vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+
+      string trad1 = $1.traducao;
+      string lab1 = $1.label;
+      string trad3 = $3.traducao;
+      string lab3 = $3.label;
+
+      if ($1.tipo == "int" && $3.tipo == "float") {
+          Cast c = gerarCast($1.label, "int", "float");
+          trad1 += c.traducao;
+          lab1 = c.label;
+      } else if ($1.tipo == "float" && $3.tipo == "int") {
+          Cast c = gerarCast($3.label, "int", "float");
+          trad3 += c.traducao;
+          lab3 = c.label;
+      }
+
+      $$.traducao = trad1 + trad3 + "\t" + $$.label + " = " + lab1 + " / " + lab3 + ";\n";
+  }
   | E TK_E E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " && " + $3.label + ";\n"; }
   | E TK_OU E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " || " + $3.label + ";\n"; }
   | TK_NAO E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; }
-  | '-' E %prec UMINUS { $$.label = gentempcode(); vars_temporarias += "\t" + $2.tipo + " " + $$.label + ";\n"; $$.tipo = $2.tipo; $$.traducao = $2.traducao + "\t" + $$.label + " = -" + $2.label + ";\n"; }
-  | '+' E %prec UPLUS { $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
+  | '-' E %prec UMINUS { 
+      if ($2.tipo != "int" && $2.tipo != "float") {
+          erroSemantico("Operador unario '-' nao suportado para o tipo " + $2.tipo);
+      }
+      $$.label = gentempcode(); 
+      vars_temporarias += "\t" + $2.tipo + " " + $$.label + ";\n";
+      $$.tipo = $2.tipo; // Aqui você já propagava corretamente!
+      $$.traducao = $2.traducao + "\t" + $$.label + " = -" + $2.label + ";\n";
+  }
+  | '+' E %prec UPLUS { 
+      if ($2.tipo != "int" && $2.tipo != "float") {
+          erroSemantico("Operador unario '+' nao suportado para o tipo " + $2.tipo);
+      }
+      $$.label = $2.label; $$.tipo = $2.tipo; $$.traducao = $2.traducao; }
   | E TK_IGUAL E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " == " + $3.label + ";\n"; }
   | E TK_DIFERENTE E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " != " + $3.label + ";\n"; }
   | E '<' E { $$.label = gentempcode(); vars_temporarias += "\tint " + $$.label + ";\n"; $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " < " + $3.label + ";\n"; }
