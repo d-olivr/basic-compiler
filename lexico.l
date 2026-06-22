@@ -25,6 +25,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 %%
 
+"//"[^\n]* { /* ignora comentários de linha inteira */ }
 "\n"            { linha++; } 
 [ \t\r\xa0]+    { /* ignora espaços, tabs, quebras do windows e espaços fantasmas */ }
 
