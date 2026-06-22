@@ -1,0 +1,28 @@
+// Teste 1: resto da divisao
+int a = 10;
+int b = 3;
+int resto = a % b;
+print(resto); 
+// esperado: 1
+
+// Teste 2: exponenciacao int
+int base_int = 2;
+int exp_int = 8;
+int pot_int = base_int ** exp_int;
+print(pot_int); 
+// esperado: 256
+
+// Teste 3: exponenciacao float
+float base_f = 2.0;
+float exp_f = 3.0;
+float pot_f = base_f ** exp_f;
+print(pot_f); 
+// esperado: 8.000000
+
+// Teste 4: combinando resto e exponenciacao
+int resto2 = a % b;
+int pot_combo = 2 ** resto2;
+print(resto2);    
+// esperado: 1
+print(pot_combo); 
+// esperado: 2
