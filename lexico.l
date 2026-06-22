@@ -69,6 +69,8 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "-"         { return '-'; }
 "*"         { return '*'; }
 "/"         { return '/'; }
+"**"        { return TK_POW; }
+"%"         { return TK_MOD; }
 
 "&&"        { return TK_E; }
 "||"        { return TK_OU; }

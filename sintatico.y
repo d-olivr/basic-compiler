@@ -150,6 +150,7 @@ extern FILE *yyin;
 %token TK_SWITCH TK_CASE TK_DEFAULT
 %token TK_TIPO_STRING TK_STR_LITERAL
 %token TK_MAIS_IGUAL TK_MENOS_IGUAL TK_VEZES_IGUAL TK_DIV_IGUAL
+%token TK_POW TK_MOD
 
 %nonassoc LOWER_THAN_ELSE
 %nonassoc TK_ELSE
@@ -159,7 +160,8 @@ extern FILE *yyin;
 %left TK_IGUAL TK_DIFERENTE
 %left '<' '>' TK_MENOR_IGUAL TK_MAIOR_IGUAL
 %left '+' '-'
-%left '*' '/'
+%left '*' '/' TK_MOD
+%right TK_POW
 %right TK_NAO UMINUS UPLUS
 %right CAST
 
@@ -703,6 +705,60 @@ E : E '+' E {
       $$.traducao = $3.traducao + $6.traducao + indexCode + "\t" + $$.label + " = " + v->label + "[" + calcIndex + "];\n";
   }
   | TK_STR_LITERAL { $$.label = $1.label; $$.tipo = "string"; $$.traducao = ""; }
+  /* Operador de resto (%)*/
+  | E TK_MOD E {
+    if ($1.tipo != "int" || $3.tipo != "int") erroSemantico("Operador '%' requer operandos inteiros.");
+    $$.label = gentempcode();
+    $$.tipo = "int";
+    vars_temporarias += "\tint " + $$.label + ";\n";
+    $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " % " + $3.label + ";\n";
+    }
+    /* Operador de potência (**) */
+    | E TK_POW E {
+    $$.tipo = tipoResultante($1.tipo, $3.tipo);
+    if ($$.tipo == "erro") erroSemantico("Tipos incompativeis para operador '**'.");
+    $$.label = gentempcode();
+    vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+    string base = $1.label;
+    string exp  = $3.label;
+    string trad = $1.traducao + $3.traducao;
+    if ($$.tipo == "float") {
+        if ($1.tipo == "int") { Cast c = gerarCast($1.label, "int", "float"); trad += c.traducao; base = c.label; }
+        if ($3.tipo == "int") { Cast c = gerarCast($3.label, "int", "float"); trad += c.traducao; exp  = c.label; }
+        string i_f     = gentempcode();
+        string res_f   = gentempcode();
+        string Lloop_f = genlabel();
+        string Lend_f  = genlabel();
+        vars_temporarias += "\tint "   + i_f   + ";\n";
+        vars_temporarias += "\tfloat " + res_f + ";\n";
+        trad += "\t" + res_f + " = 1.0;\n";
+        trad += "\t" + i_f   + " = 0;\n";
+        trad += Lloop_f + ":;\n";
+        trad += "\tif (" + i_f + " >= " + exp + ") goto " + Lend_f + ";\n";
+        trad += "\t" + res_f + " = " + res_f + " * " + base + ";\n";
+        trad += "\t" + i_f   + " = " + i_f   + " + 1;\n";
+        trad += "\tgoto " + Lloop_f + ";\n";
+        trad += Lend_f + ":;\n";
+        $$.label = res_f;
+    } else {
+        string i     = gentempcode();
+        string res   = gentempcode();
+        string Lloop = genlabel();
+        string Lend  = genlabel();
+        vars_temporarias += "\tint " + i   + ";\n";
+        vars_temporarias += "\tint " + res + ";\n";
+        trad += "\t" + res + " = 1;\n";
+        trad += "\t" + i   + " = 0;\n";
+        trad += Lloop + ":;\n";
+        trad += "\tif (" + i + " >= " + exp + ") goto " + Lend + ";\n";
+        trad += "\t" + res + " = " + res + " * " + base + ";\n";
+        trad += "\t" + i   + " = " + i   + " + 1;\n";
+        trad += "\tgoto " + Lloop + ";\n";
+        trad += Lend + ":;\n";
+        $$.label = res;
+    }
+    $$.traducao = trad;
+}
   ;
 
 %%
