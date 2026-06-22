@@ -448,16 +448,24 @@ declaracao : tipo TK_ID ';' {
     $$.traducao = $4.traducao + "\t" + varLabel + " = (" + $1.tipo + "*) malloc(" + $4.label + " * sizeof(" + $1.tipo + "));\n";
 }
 /* Declaracao Matriz 2D */
-| tipo TK_ID '[' E ']' '[' E ']' ';' {
-    if ($4.tipo != "int" || $6.tipo != "int") erroSemantico("Tamanhos da matriz devem ser inteiros.");
+| tipo TK_ID '[' E ']' '[' E ']' ';'
+{
+    if ($4.tipo != "int" || $7.tipo != "int") {
+        erroSemantico("Tamanhos da matriz devem ser inteiros.");
+    }
+    
     string varLabel = gentempcode();
     string colSize = gentempcode();
     vars_temporarias += "\tint " + colSize + ";\n";
-    string trad = $4.traducao + $6.traducao + "\t" + colSize + " = " + $6.label + ";\n";
+    
+    string trad = $4.traducao + $7.traducao + "\t" + colSize + " = " + $7.label + ";\n";
+    
     declararVariavelArray($2.label, $1.tipo, varLabel, 2, colSize);
     vars_temporarias += "\t" + $1.tipo + "* " + varLabel + ";\n";
+    
     string totalSize = gentempcode();
     vars_temporarias += "\tint " + totalSize + ";\n";
+    
     trad += "\t" + totalSize + " = " + $4.label + " * " + colSize + ";\n";
     trad += "\t" + varLabel + " = (" + $1.tipo + "*) malloc(" + totalSize + " * sizeof(" + $1.tipo + "));\n";
     $$.traducao = trad;
