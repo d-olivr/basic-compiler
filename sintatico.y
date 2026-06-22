@@ -418,6 +418,7 @@ declaracao : tipo TK_ID ';' {
     vars_temporarias += "\t" + $1.label + " " + varLabel + ";\n";
     string trad = $4.traducao; string lab = $4.label;
     if ($1.tipo == "float" && $4.tipo == "int") { Cast c = gerarCast($4.label, "int", "float"); trad += c.traducao; lab = c.label; }
+    if ($1.tipo == "int" && $4.tipo == "float") erroSemantico("Nao e possivel atribuir float a int sem cast explicito. Use (int).");
     $$.traducao = trad + "\t" + varLabel + " = " + lab + ";\n";
 } | TK_TIPO_STRING TK_ID ';' {
     string varLabel = gentempcode();
@@ -480,6 +481,7 @@ atrib_base : TK_ID TK_ATRIB E {
         $$.traducao = trad + "\t_miku_strcpy_safe(&" + v->label + ", &" + v->label + "_cap, " + lab + ");\n";
     } else {
         if (v->tipo == "float" && $3.tipo == "int") { Cast c = gerarCast($3.label, "int", "float"); trad += c.traducao; lab = c.label; }
+        if (v->tipo == "int" && $3.tipo == "float") erroSemantico("Nao e possivel atribuir float a int sem cast explicito. Use (int).");
         $$.traducao = trad + "\t" + v->label + " = " + lab + ";\n";
     }
 }
@@ -496,6 +498,7 @@ atrib_base : TK_ID TK_ATRIB E {
     if (v->is_array != 1) erroSemantico("Variavel '" + $1.label + "' nao eh vetor.");
     string trad = $3.traducao + $6.traducao; string lab = $6.label;
     if (v->tipo == "float" && $6.tipo == "int") { Cast c = gerarCast($6.label, "int", "float"); trad += c.traducao; lab = c.label; }
+    if (v->tipo == "int" && $6.tipo == "float") erroSemantico("Nao e possivel atribuir float a int sem cast explicito. Use (int).");
     $$.traducao = trad + "\t" + v->label + "[" + $3.label + "] = " + lab + ";\n";
 }
 | TK_ID '[' E ']' TK_MAIS_IGUAL E  { $$.traducao = gerarAtribuicaoCompostaArray($1.label, "+", $3, nullptr, $6); }
