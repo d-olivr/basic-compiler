@@ -1,0 +1,59 @@
+int linhas = 3;
+int colunas = 3;
+
+// Declaração dinâmica usando variáveis
+int m[linhas][colunas];
+
+// Preenchendo posições específicas
+m[0][0] = 10;
+m[0][1] = 20;
+m[0][2] = 30;
+
+m[1][1] = 50;
+
+// Testando leitura em expressões e print direto
+int m[2][3];
+m[0][0] = 1;
+m[0][1] = 2;
+m[1][0] = 3;
+print(m[0][1]); // Deve exibir 2
+print(m[1][0]); // Deve exibir 3
+
+// Testando leitura em expressões e print direto
+print(m[0][0]); // Deve exibir 10
+print(m[0][1]); // Deve exibir 20
+
+// Testando operadores compostos em matrizes (ex: +=, *=)
+// testando a função gerarAtribuicaoCompostaArray
+m[0][0] += 5;   // 10 + 5 = 15
+m[0][1] *= 2;   // 20 * 2 = 40
+
+print(m[0][0]); // Deve exibir 15
+print(m[0][1]); // Deve exibir 40
+
+// Testando uso de expressões nos índices da matriz
+int i;
+int j;
+i = 1;
+j = 1;
+print(m[i][j]); // Deve acessar m[1][1] e exibir 50
+
+// Testando atribuição composta com expressões nos índices
+int m[2][2];
+m[1][1] = 100;
+m[1][1] -= 30;
+print(m[1][1]); // Deve exibir 70 (100 - 30)
+
+// Testando índice calculado com expressões
+int m[3][3];
+int i = 1;
+int j = 2;
+m[i][j] = 42;
+print(m[i][j]); // Deve exibir 42, acessando m[1][2]
+
+// Testando matriz float com cast
+float m[2][2];
+m[0][0] = 1;
+m[0][1] = 2;
+float soma = m[0][0] + m[0][1];
+print(soma); // Deve exibir 3.000000
