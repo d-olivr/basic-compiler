@@ -283,8 +283,46 @@ comando : declaracao             { $$.traducao = $1.traducao; }
             $$.traducao = trad + "\tscanf(\"" + fmt + "\", &" + v->label + "[" + calcIndex + "]);\n";
         }
         | TK_BREAK ';' {
-            if (stack_break.empty()) erroSemantico("comando 'break' fora de um laco de repeticao.");
+            if (stack_break.empty()) {
+                erroSemantico("Comando 'break' fora de um laco de repeticao ou switch.");
+            }
+            // Break normal: joga para o topo da pilha (laço mais interno)
             $$.traducao = "\tgoto " + stack_break.top() + ";\n";
+        }
+        | TK_BREAK TK_NUM ';' {
+            if (stack_break.empty()) {
+                erroSemantico("Comando 'break' fora de um laco de repeticao ou switch.");
+            }
+
+            // Convertemos o valor do token (string) para inteiro (ex: "2" vira 2)
+            int niveis = atoi($2.label.c_str());
+
+            if (niveis <= 0) {
+                erroSemantico("O nivel do break deve ser um numero maior que zero.");
+            }
+            if (niveis > stack_break.size()) {
+                erroSemantico("Nivel de 'break' invalido. Tentou quebrar " + to_string(niveis) + " niveis, mas existem apenas " + to_string(stack_break.size()) + " lacos aninhados.");
+            }
+
+            // Para acessar o N-ésimo elemento da pilha, precisamos desempilhar temporariamente
+            // os elementos superiores em uma pilha auxiliar.
+            stack<string> pilha_aux;
+            for (int i = 1; i < niveis; i++) {
+                pilha_aux.push(stack_break.top());
+                stack_break.pop();
+            }
+
+            // O topo agora é o label do laço que queremos quebrar!
+            string label_alvo = stack_break.top();
+
+            // Devolvemos os elementos extraídos de volta para a pilha original para não estragar o escopo
+            while (!pilha_aux.empty()) {
+                stack_break.push(pilha_aux.top());
+                pilha_aux.pop();
+            }
+
+            // Gera o goto para o laço externo correto
+            $$.traducao = "\tgoto " + label_alvo + ";\n";
         }
         | TK_CONTINUE ';' {
             if (stack_continue.empty()) erroSemantico("comando 'continue' fora de um laco de repeticao.");
