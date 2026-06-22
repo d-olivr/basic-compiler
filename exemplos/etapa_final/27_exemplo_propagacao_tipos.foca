@@ -1,3 +1,4 @@
+// Declaração de variáveis com tipos diferentes
 int a;
 int b;
 float x;
@@ -8,29 +9,40 @@ b = 2;
 x = 1.5;
 y = 4.5;
 
-
+// ---- TESTE 1: Expressão encadeada homogênea (int) ----
+// Se a propagação falhar, o segundo '+' falhará por falta de tipo no bloco esquerdo.
 int resultado_int;
 resultado_int = a + b + 3; 
-print(resultado_int); 
+print(resultado_int); // Deve exibir: 10
 
 
+// ---- TESTE 2: Expressão encadeada homogênea (float) ----
 float resultado_float;
 resultado_float = x + y + 2.0; 
-print(resultado_float); 
+print(resultado_float); // Deve exibir: 8.000000
 
 
+// ---- TESTE 3: Coerção Implícita Simples (int + float) ----
+// O compilador deve identificar que 'a' (int) precisa de um cast para float antes de somar com 'x'.
 float misto1;
 misto1 = a + x; 
-print(misto1); 
+print(misto1); // Deve exibir: 6.500000
 
 
-
+// ---- TESTE 4: Coerção Implícita Inversa (float + int) ----
+// O compilador deve aplicar o cast no operando direito 'b'.
 float misto2;
 misto2 = y + b; 
-print(misto2); 
+print(misto2); // Deve exibir: 6.500000
 
 
-
+// ---- TESTE 5: Expressão Complexa Misturada ----
+// Aqui avaliamos se o compilador propaga o tipo 'float' gerado na primeira operação
+// para as operações seguintes na árvore de derivação.
 float complexo;
 complexo = a + x + b + y; 
-print(complexo); 
+// Passo a passo esperado:
+// 1. (a + x) -> int + float vira float (6.5)
+// 2. (6.5 + b) -> float + int vira float (8.5)
+// 3. (8.5 + y) -> float + float vira float (13.0)
+print(complexo); // Deve exibir: 13.000000
