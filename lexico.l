@@ -1,11 +1,14 @@
 %{
 #include <string>
+#include <vector>
 #include <stdio.h>
 
 struct atributos {
     std::string label;
     std::string traducao;
     std::string tipo;
+    std::vector<std::string> listaLabels;
+    std::vector<std::string> listaTipos;
 };
 
 #define YYSTYPE atributos
@@ -25,7 +28,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 %%
 
-"//"[^\n]* { /* ignora comentários de linha inteira */ }
+"//"[^\n]* { /* ignora comentários de linha inteira com segurança */ }
 "\n"            { linha++; } 
 [ \t\r\xa0]+    { /* ignora espaços, tabs, quebras do windows e espaços fantasmas */ }
 
@@ -54,11 +57,10 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "case"      { return TK_CASE; }
 "default"   { return TK_DEFAULT; }
 
-"void"      { return TK_TIPO_VOID; }
 "return"    { return TK_RETURN; }
+"void"      { return TK_VOID; }
 
-\'.\'       { yylval.label = yytext; yylval.tipo = "char"; return TK_NUM; } 
-{NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; } 
+{NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; }
 {NUM_INT}   { yylval.label = yytext; yylval.tipo = "int";   return TK_NUM; } 
 
 {ID}        { yylval.label = yytext; return TK_ID; }
@@ -97,17 +99,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 ":"         { return ':'; }
 ";"         { return ';'; }
 ","         { return ','; }
-\"[^\"\n]*\"  {
-    int len = strlen(yytext) - 2; // -2 para descontar as aspas
-    if (len > 4500) {
-        fprintf(stderr, "Erro lexico na linha %d: string literal excede 4500 caracteres (%d)\n", linha, len);
-        exit(1);
-    }
-    yylval.label = yytext;
-    yylval.tipo = "string";
-    return TK_STR_LITERAL;
-}
 
-.           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
+.           { printf("Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext); }
 
 %%
