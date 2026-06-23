@@ -45,13 +45,16 @@
   ## Final stage
 - [x] Stage I
 - [x] Stage II
-- [ ] Unary Operators
-- [ ] Variable Initialization
-- [ ] Functions
-- [ ] Arrays/Matrices
-- [ ] Array/Matrix Initialization
-- [ ] Compound Operators
+- [x] Unary Operators
+- [x] Variable Initialization
+- [x] Functions
+- [x] Arrays/Matrices
+- [x] Array/Matrix Initialization
+- [x] Compound Operators
 - [ ] Error Detection
-- [ ] Extras
+- [x] Extras
+  - [x] Foreach
+  - [x] New operations
+  - [x] String treatment
 
 <br>
