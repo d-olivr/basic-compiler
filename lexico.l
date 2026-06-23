@@ -38,6 +38,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "char"      { return TK_TIPO_CHAR; }
 "string"    { return TK_TIPO_STRING; }
 "bool"      { return TK_TIPO_BOOL; }
+"var"       { return TK_VAR; }
 
 "true"      { return TK_TRUE; } 
 "false"     { return TK_FALSE; }
@@ -103,7 +104,8 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 ","         { return ','; }
 
 .           {
-                printf("Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext);
+                fprintf(stdout, "Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext);
+                fprintf(stderr, "Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext);
                 houveErro = true;
             }
 

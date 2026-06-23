@@ -98,12 +98,16 @@ Variavel buscarVariavel(string nome) {
 
 void yyerror(string msg) {
     houveErro = true;
-    cout << "Erro Sintatico na linha " << linha << ": " << msg << endl;
+    string texto = "Erro Sintatico na linha " + to_string(linha) + ": " + msg;
+    cout << texto << endl;
+    cerr << texto << endl;
     exit(1);
 }
 void erroSemantico(string msg) {
     houveErro = true;
-    cout << "Erro Semantico na linha " << linha << ": " << msg << endl;
+    string texto = "Erro Semantico na linha " + to_string(linha) + ": " + msg;
+    cout << texto << endl;
+    cerr << texto << endl;
     exit(1);
 }
 %}
@@ -117,6 +121,7 @@ void erroSemantico(string msg) {
 %token TK_MAIS_IGUAL TK_MENOS_IGUAL TK_VEZES_IGUAL TK_DIV_IGUAL
 %token TK_POW TK_MOD
 %token TK_RETURN TK_VOID
+%token TK_VAR
 
 %left TK_OU
 %left TK_E
@@ -126,6 +131,7 @@ void erroSemantico(string msg) {
 %left '*' '/' TK_MOD
 %right TK_POW
 %right TK_NAO
+%right UMENOS UMAIS
 
 %%
 
@@ -314,6 +320,20 @@ declaracao : tipo TK_ID
     vars_temporarias += "\t" + $1.tipo + " " + realLabel + ";\n";
     $$.traducao = "";
 }
+| tipo TK_ID TK_ATRIB E
+{
+    Variavel v = buscarVariavel($2.label);
+    if (v.tipo != "" && pilhaEscopos.top().find($2.label) != pilhaEscopos.top().end()) {
+        erroSemantico("Variavel '" + $2.label + "' ja declarada neste escopo.");
+    }
+    string realLabel = $2.label + "_" + to_string(linha);
+    declararVariavel($2.label, $1.tipo, realLabel);
+    vars_temporarias += "\t" + $1.tipo + " " + realLabel + ";\n";
+
+    string trad = $4.traducao;
+    string labelDireito = tirarCastSeNecessario($1.tipo, $4.tipo, $4.label, trad);
+    $$.traducao = trad + "\t" + realLabel + " = " + labelDireito + ";\n";
+}
 | tipo TK_ID '[' E ']'
 {
     if ($4.tipo != "int") erroSemantico("Tamanho do vetor deve ser um numero inteiro.");
@@ -340,6 +360,26 @@ declaracao : tipo TK_ID
     trad += "\t" + totalSize + " = " + $4.label + " * " + colSize + ";\n";
     trad += "\t" + varLabel + " = (" + $1.tipo + "*) malloc(" + totalSize + " * sizeof(" + $1.tipo + "));\n";
     $$.traducao = trad;
+}
+| TK_VAR TK_ID TK_ATRIB E
+{
+    Variavel v = buscarVariavel($2.label);
+    if (v.tipo != "" && pilhaEscopos.top().find($2.label) != pilhaEscopos.top().end()) {
+        erroSemantico("Variavel '" + $2.label + "' ja declarada neste escopo.");
+    }
+    string tipoInferido = $4.tipo;
+    string realLabel = $2.label + "_" + to_string(linha);
+    declararVariavel($2.label, tipoInferido, realLabel);
+    vars_temporarias += "\t" + tipoInferido + " " + realLabel + ";\n";
+    $$.traducao = $4.traducao + "\t" + realLabel + " = " + $4.label + ";\n";
+}
+| TK_VAR TK_ID
+{
+    erroSemantico("Variavel '" + $2.label + "' declarada com 'var' precisa ser inicializada (ex: var " + $2.label + " = valor;).");
+}
+| TK_VAR TK_ID '[' E ']'
+{
+    erroSemantico("'var' nao pode ser usado para declarar arrays; especifique o tipo explicitamente (ex: int " + $2.label + "[" + $4.label + "];).");
 }
 ;
 
@@ -605,6 +645,21 @@ E : E '+' E          { $$.traducao = gerarOperacaoAritmetica("+", $1, $3, $$); }
         if ($2.tipo != "bool") erroSemantico("Operador '!' exige operando booleano.");
         $$.label = gentempcode(); vars_temporarias += "\tbool " + $$.label + ";\n"; $$.tipo = "bool";
         $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; 
+    }
+  | '-' E %prec UMENOS
+    {
+        if ($2.tipo != "int" && $2.tipo != "float") erroSemantico("Operador unario '-' exige operando numerico (int ou float).");
+        $$.tipo = $2.tipo;
+        $$.label = gentempcode();
+        vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+        $$.traducao = $2.traducao + "\t" + $$.label + " = -" + $2.label + ";\n";
+    }
+  | '+' E %prec UMAIS
+    {
+        if ($2.tipo != "int" && $2.tipo != "float") erroSemantico("Operador unario '+' exige operando numerico (int ou float).");
+        $$.tipo = $2.tipo;
+        $$.label = $2.label;
+        $$.traducao = $2.traducao;
     }
   | '(' E ')'        { $$.label = $2.label; $$.traducao = $2.traducao; $$.tipo = $2.tipo; }
   | TK_NUM           { $$.label = $1.label; $$.traducao = ""; $$.tipo = $1.tipo; }
