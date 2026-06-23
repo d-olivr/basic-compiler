@@ -15,7 +15,8 @@ struct atributos {
 
 #include "y.tab.h"
 
-int linha = 1; 
+int linha = 1;
+extern bool houveErro; // declarada/definida em sintatico.y, usada para sinalizar erro lexico
 %}
 
 %option noyywrap
@@ -101,6 +102,9 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 ";"         { return ';'; }
 ","         { return ','; }
 
-.           { printf("Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext); }
+.           {
+                printf("Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext);
+                houveErro = true;
+            }
 
 %%

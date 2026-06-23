@@ -77,6 +77,7 @@ map<string, Funcao> tabelaFuncoes;
 stack<string> pilhaTipoRetornoAtual; // tipo de retorno da função sendo parseada (para checar 'return')
 stack<DadosForeach> stack_foreach; // dados pendentes de foreach entre a mid-rule action e a acao final
 extern int linha;
+bool houveErro = false; // setada por erro lexico, sintatico ou semantico; impede geracao de codigo no final
 
 #define vars_temporarias pilhaVarsTemporarias.back()
 
@@ -95,8 +96,16 @@ Variavel buscarVariavel(string nome) {
     return {"", "", 0, ""};
 }
 
-void yyerror(string msg) { cout << "Erro Sintatico na linha " << linha << ": " << msg << endl; exit(1); }
-void erroSemantico(string msg) { cout << "Erro Semantico na linha " << linha << ": " << msg << endl; exit(1); }
+void yyerror(string msg) {
+    houveErro = true;
+    cout << "Erro Sintatico na linha " << linha << ": " << msg << endl;
+    exit(1);
+}
+void erroSemantico(string msg) {
+    houveErro = true;
+    cout << "Erro Semantico na linha " << linha << ": " << msg << endl;
+    exit(1);
+}
 %}
 
 %token TK_NUM TK_ID TK_TIPO_INT TK_TIPO_FLOAT TK_TIPO_BOOL TK_TIPO_CHAR TK_TIPO_STRING
@@ -138,12 +147,31 @@ comando : declaracao ';' { $$.traducao = $1.traducao; }
         | condicional    { $$.traducao = $1.traducao; }
         | iterativo      { $$.traducao = $1.traducao; }
         | TK_PRINT '(' E ')' ';'
-        { $$.traducao = $3.traducao + "\tprintf(" + ($3.tipo == "float" ? "\"%f\\n\"" : "\"%d\\n\"") + ", " + $3.label + ");\n"; }
+        {
+            string formato;
+            string label = $3.label;
+            string trad = $3.traducao;
+            if ($3.tipo == "float") {
+                formato = "\"%f\\n\"";
+            } else if ($3.tipo == "int") {
+                formato = "\"%d\\n\"";
+            } else if ($3.tipo == "bool") {
+                formato = "\"%d\\n\"";
+            } else {
+                erroSemantico("Tipo '" + $3.tipo + "' nao suportado pelo comando 'print'.");
+            }
+            $$.traducao = trad + "\tprintf(" + formato + ", " + label + ");\n";
+        }
         | TK_READ '(' TK_ID ')' ';'
         {
             Variavel v = buscarVariavel($3.label);
             if (v.tipo == "") erroSemantico("Variavel '" + $3.label + "' nao declarada.");
-            $$.traducao = "\tscanf(" + string(v.tipo == "float" ? "\"%f\"" : "\"%d\"") + ", &" + v.label + ");\n";
+            if (v.is_array != 0) erroSemantico("Nao e possivel usar 'read' diretamente em um array; leia para uma variavel escalar e atribua a posicao desejada.");
+            string formato;
+            if (v.tipo == "float") formato = "\"%f\"";
+            else if (v.tipo == "int") formato = "\"%d\"";
+            else erroSemantico("Tipo '" + v.tipo + "' nao suportado pelo comando 'read'.");
+            $$.traducao = "\tscanf(" + formato + ", &" + v.label + ");\n";
         }
         | '{' entrar_escopo lista_comandos '}' sair_escopo { $$.traducao = $3.traducao; }
         | TK_BREAK ';'
@@ -686,16 +714,22 @@ string gerarOperacaoAritmetica(string op, atributos e1, atributos e3, atributos 
 }
 
 string gerarOperacaoRelacional(string op, atributos e1, atributos e3, atributos &res) {
+    bool algumBool = (e1.tipo == "bool" || e3.tipo == "bool");
+    bool ambosBool = (e1.tipo == "bool" && e3.tipo == "bool");
+    if (algumBool && !ambosBool) {
+        erroSemantico("Nao e possivel comparar o tipo 'bool' com o tipo '" + (e1.tipo == "bool" ? e3.tipo : e1.tipo) + "'.");
+    }
+
     string trad = e1.traducao + e3.traducao;
-    string t_maior = (e1.tipo == "float" || e3.tipo == "float") ? "float" : "int";
-    
+    string t_maior = (e1.tipo == "float" || e3.tipo == "float") ? "float" : (ambosBool ? "bool" : "int");
+
     res.tipo = "bool";
     res.label = gentempcode();
     vars_temporarias += "\tbool " + res.label + ";\n";
-    
-    string l1 = gerarCast(e1.label, e1.tipo, t_maior, trad);
-    string l3 = gerarCast(e3.label, e3.tipo, t_maior, trad);
-    
+
+    string l1 = ambosBool ? e1.label : gerarCast(e1.label, e1.tipo, t_maior, trad);
+    string l3 = ambosBool ? e3.label : gerarCast(e3.label, e3.tipo, t_maior, trad);
+
     return trad + "\t" + res.label + " = " + l1 + " " + op + " " + l3 + ";\n";
 }
 
@@ -841,8 +875,8 @@ void finalizarDeclaracaoFuncao(atributos dadosPendentes, string corpoTraducao) {
 int main() {
     var_temp_qnt = 0;
     int resultado = yyparse();
-    if (resultado == 0) {
+    if (resultado == 0 && !houveErro) {
         cout << codigo_gerado;
     }
-    return resultado;
+    return (resultado != 0 || houveErro) ? 1 : 0;
 }
