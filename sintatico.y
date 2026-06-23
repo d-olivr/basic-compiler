@@ -28,6 +28,7 @@ string gerarCast(string label_origem, string tipo_origem, string tipo_destino, s
 string tirarCastSeNecessario(string tipoDestino, string tipoOrigem, string labelOrigem, string &traducao);
 string gerarAtribuicaoComposta(string varNome, string op, atributos e);
 string gerarAtribuicaoCompostaArray(string varNome, atributos idx, string op, atributos e);
+string gerarAtribuicaoCompostaMatriz(string varNome, atributos idxLinha, atributos idxColuna, string op, atributos e);
 string gerarOperacaoAritmetica(string op, atributos e1, atributos e3, atributos &res);
 string gerarOperacaoRelacional(string op, atributos e1, atributos e3, atributos &res);
 string gerarOperacaoLogica(string op, atributos e1, atributos e3, atributos &res);
@@ -430,6 +431,10 @@ atribuicao_composta : TK_ID TK_MAIS_IGUAL E  { $$.traducao = gerarAtribuicaoComp
                     | TK_ID '[' E ']' TK_MENOS_IGUAL E { $$.traducao = gerarAtribuicaoCompostaArray($1.label, $3, "-", $6); }
                     | TK_ID '[' E ']' TK_VEZES_IGUAL E { $$.traducao = gerarAtribuicaoCompostaArray($1.label, $3, "*", $6); }
                     | TK_ID '[' E ']' TK_DIV_IGUAL E   { $$.traducao = gerarAtribuicaoCompostaArray($1.label, $3, "/", $6); }
+                    | TK_ID '[' E ']' '[' E ']' TK_MAIS_IGUAL E  { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "+", $9); }
+                    | TK_ID '[' E ']' '[' E ']' TK_MENOS_IGUAL E { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "-", $9); }
+                    | TK_ID '[' E ']' '[' E ']' TK_VEZES_IGUAL E { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "*", $9); }
+                    | TK_ID '[' E ']' '[' E ']' TK_DIV_IGUAL E   { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "/", $9); }
                     ;
 
 condicional : TK_IF '(' E ')' bloco TK_ELSE bloco
@@ -828,6 +833,31 @@ string gerarAtribuicaoCompostaArray(string varNome, atributos idx, string op, at
     string trad_op = gerarOperacaoAritmetica(op, e_arr, e, res_op) + e.traducao;
     string labelFinal = tirarCastSeNecessario(v.tipo, res_op.tipo, res_op.label, trad_op);
     return trad_op + "\t" + v.label + "[" + idx.label + "] = " + labelFinal + ";\n";
+}
+
+string gerarAtribuicaoCompostaMatriz(string varNome, atributos idxLinha, atributos idxColuna, string op, atributos e) {
+    Variavel v = buscarVariavel(varNome);
+    if (v.tipo == "") erroSemantico("Variavel '" + varNome + "' nao declarada.");
+    if (v.is_array != 2) erroSemantico("A variavel '" + varNome + "' nao e uma matriz bidimensional.");
+    if (idxLinha.tipo != "int" || idxColuna.tipo != "int") erroSemantico("Os indices de matriz devem ser inteiros.");
+
+    string idxLinear = gentempcode();
+    vars_temporarias += "\tint " + idxLinear + ";\n";
+    string trad_idx = idxLinha.traducao + idxColuna.traducao;
+    trad_idx += "\t" + idxLinear + " = (" + idxLinha.label + " * " + v.col_size + ") + " + idxColuna.label + ";\n";
+
+    string t_val = gentempcode();
+    vars_temporarias += "\t" + v.tipo + " " + t_val + ";\n";
+    string trad_leitura = trad_idx + "\t" + t_val + " = " + v.label + "[" + idxLinear + "];\n";
+    atributos e_mat;
+    e_mat.label = t_val;
+    e_mat.tipo = v.tipo;
+    e_mat.traducao = trad_leitura;
+
+    atributos res_op;
+    string trad_op = gerarOperacaoAritmetica(op, e_mat, e, res_op) + e.traducao;
+    string labelFinal = tirarCastSeNecessario(v.tipo, res_op.tipo, res_op.label, trad_op);
+    return trad_op + "\t" + v.label + "[" + idxLinear + "] = " + labelFinal + ";\n";
 }
 
 string gerarOperacaoMod(atributos e1, atributos e3, atributos &res) {
