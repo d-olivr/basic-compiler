@@ -1,0 +1,156 @@
+// TESTES DO FOREACH 
+// Sintaxe: foreach ( tipo item : array, tamanho ) bloco
+// =============================================
+
+
+// --- TESTE 1: foreach basico com int ---
+// Percorre um array de inteiros e imprime cada elemento
+int v1[5];
+v1[0] = 10;
+v1[1] = 20;
+v1[2] = 30;
+v1[3] = 40;
+v1[4] = 50;
+
+foreach (int x : v1, 5) {
+    print(x);
+}
+
+
+// --- TESTE 2: foreach com float ---
+// Percorre um array de floats
+int v2[3];
+v2[0] = 1;
+v2[1] = 2;
+v2[2] = 3;
+
+foreach (int y : v2, 3) {
+    print(y);
+}
+
+
+// --- TESTE 3: foreach com acumulador (soma dos elementos) ---
+int v3[4];
+v3[0] = 5;
+v3[1] = 15;
+v3[2] = 25;
+v3[3] = 35;
+
+int soma;
+soma = 0;
+
+foreach (int elem : v3, 4) {
+    soma += elem;
+}
+print(soma);
+// Esperado: 80
+
+
+// --- TESTE 4: foreach com condicional dentro ---
+// Imprime apenas os elementos maiores que 10
+int v4[5];
+v4[0] = 3;
+v4[1] = 12;
+v4[2] = 7;
+v4[3] = 25;
+v4[4] = 1;
+
+foreach (int n : v4, 5) {
+    if (n > 10)
+        print(n);
+}
+// Esperado: 12, 25
+
+
+// --- TESTE 5: foreach com break ---
+// Para ao encontrar o valor 99
+int v5[5];
+v5[0] = 10;
+v5[1] = 20;
+v5[2] = 99;
+v5[3] = 30;
+v5[4] = 40;
+
+foreach (int val : v5, 5) {
+    if (val == 99)
+        break;
+    print(val);
+}
+// Esperado: 10, 20
+
+
+// --- TESTE 6: foreach com continue ---
+// Pula o valor 0
+int v6[5];
+v6[0] = 1;
+v6[1] = 0;
+v6[2] = 2;
+v6[3] = 0;
+v6[4] = 3;
+
+foreach (int item : v6, 5) {
+    if (item == 0)
+        continue;
+    print(item);
+}
+// Esperado: 1, 2, 3
+
+
+// --- TESTE 7: foreach com tamanho via variavel ---
+int v7[4];
+v7[0] = 100;
+v7[1] = 200;
+v7[2] = 300;
+v7[3] = 400;
+
+int tam;
+tam = 4;
+
+foreach (int e : v7, tam) {
+    print(e);
+}
+// Esperado: 100, 200, 300, 400
+
+
+// --- TESTE 8: foreach aninhado (matriz simulada como 2 arrays) ---
+// Dois arrays e dois foreach um apos o outro
+int linha1[3];
+linha1[0] = 1;
+linha1[1] = 2;
+linha1[2] = 3;
+
+int linha2[3];
+linha2[0] = 4;
+linha2[1] = 5;
+linha2[2] = 6;
+
+foreach (int a : linha1, 3) {
+    print(a);
+}
+foreach (int b : linha2, 3) {
+    print(b);
+}
+// Esperado: 1, 2, 3, 4, 5, 6
+
+
+// --- TESTE 9: foreach com contador externo ---
+// Conta quantos elementos sao pares
+int v9[6];
+v9[0] = 2;
+v9[1] = 5;
+v9[2] = 8;
+v9[3] = 3;
+v9[4] = 10;
+v9[5] = 7;
+
+int pares;
+pares = 0;
+
+foreach (int p : v9, 6) {
+    int resto;
+    resto = p % 2;
+    if (resto == 0)
+        pares += 1;
+}
+print(pares);
+// Esperado: 3 (valores 2, 8 e 10 sao pares)
