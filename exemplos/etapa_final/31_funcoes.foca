@@ -1,0 +1,78 @@
+// Funcao recursiva que retorna int
+int fatorial(int n) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * fatorial(n - 1);
+}
+
+// Funcao recursiva indireta (chama a si mesma com outros argumentos)
+int mdc(int a, int b) {
+    if (b == 0) {
+        return a;
+    }
+    return mdc(b, a % b);
+}
+
+// Funcao com retorno bool
+bool eh_par(int n) {
+    return (n % 2) == 0;
+}
+
+// Funcao com retorno float e cast implicito int -> float
+float media(float a, float b) {
+    return (a + b) / 2;
+}
+
+// Funcao void com multiplos parametros, sem retornar valor
+void imprime_linha(int valor, int repeticoes) {
+    int i;
+    i = 0;
+    while (i < repeticoes) {
+        print(valor);
+        i += 1;
+    }
+}
+
+// Uma funcao chamando outra ja definida antes dela
+int dobro(int x) {
+    return x * 2;
+}
+
+int quadruplo(int x) {
+    return dobro(dobro(x));
+}
+
+// ---------------- Programa principal (comandos soltos) ----------------
+
+int n;
+n = 6;
+print(fatorial(n));
+// 720
+
+print(mdc(48, 18));
+// 6
+
+print(eh_par(n));
+// 1 (verdadeiro)
+print(eh_par(n + 1));
+// 0 (falso)
+
+float r;
+r = media(1.5, 3);
+// cast implicito de 3 (int) para float
+print(r);
+// 2.250000
+
+imprime_linha(9, 3);
+// imprime 9, 9, 9
+
+print(quadruplo(5));
+// 20
+
+// Chamada void usada como comando isolado (nao pode ser usada em expressao)
+bool flag;
+// sem cast implícito bool -> int. então, eh_par(10) retorna bool, que é atribuído a flag
+flag = eh_par(10);
+print(flag);
+imprime_linha(2, 2);

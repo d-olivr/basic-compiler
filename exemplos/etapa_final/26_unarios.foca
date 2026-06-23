@@ -11,22 +11,22 @@ bool inv = !flag;
 print(inv);
 
 bool v = false;
-bool r = !!v;
-print(r);
+bool u = !!v;
+print(u);
 
-int a = 3;
-int b = -a + 2;
-print(b);
+int d = 3;
+int e = -d + 2;
+print(e);
 
 float f = 3.14;
 float g = -f;
 print(g);
 
-int x = 4;
-int y = -(x + 1);
-print(y);
+int h = 4;
+int i = -(h + 1);
+print(i);
 
-int a = 5;
-int b = 3;
-bool r = !(a == b);
+int j = 5;
+int k = 3;
+bool r = !(j == k);
 print(r);

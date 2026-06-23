@@ -28,6 +28,7 @@ string gerarCast(string label_origem, string tipo_origem, string tipo_destino, s
 string tirarCastSeNecessario(string tipoDestino, string tipoOrigem, string labelOrigem, string &traducao);
 string gerarAtribuicaoComposta(string varNome, string op, atributos e);
 string gerarAtribuicaoCompostaArray(string varNome, atributos idx, string op, atributos e);
+string gerarAtribuicaoCompostaMatriz(string varNome, atributos idxLinha, atributos idxColuna, string op, atributos e);
 string gerarOperacaoAritmetica(string op, atributos e1, atributos e3, atributos &res);
 string gerarOperacaoRelacional(string op, atributos e1, atributos e3, atributos &res);
 string gerarOperacaoLogica(string op, atributos e1, atributos e3, atributos &res);
@@ -77,6 +78,7 @@ map<string, Funcao> tabelaFuncoes;
 stack<string> pilhaTipoRetornoAtual; // tipo de retorno da função sendo parseada (para checar 'return')
 stack<DadosForeach> stack_foreach; // dados pendentes de foreach entre a mid-rule action e a acao final
 extern int linha;
+bool houveErro = false; // setada por erro lexico, sintatico ou semantico; impede geracao de codigo no final
 
 #define vars_temporarias pilhaVarsTemporarias.back()
 
@@ -95,8 +97,20 @@ Variavel buscarVariavel(string nome) {
     return {"", "", 0, ""};
 }
 
-void yyerror(string msg) { cout << "Erro Sintatico na linha " << linha << ": " << msg << endl; exit(1); }
-void erroSemantico(string msg) { cout << "Erro Semantico na linha " << linha << ": " << msg << endl; exit(1); }
+void yyerror(string msg) {
+    houveErro = true;
+    string texto = "Erro Sintatico na linha " + to_string(linha) + ": " + msg;
+    cout << texto << endl;
+    cerr << texto << endl;
+    exit(1);
+}
+void erroSemantico(string msg) {
+    houveErro = true;
+    string texto = "Erro Semantico na linha " + to_string(linha) + ": " + msg;
+    cout << texto << endl;
+    cerr << texto << endl;
+    exit(1);
+}
 %}
 
 %token TK_NUM TK_ID TK_TIPO_INT TK_TIPO_FLOAT TK_TIPO_BOOL TK_TIPO_CHAR TK_TIPO_STRING
@@ -108,6 +122,7 @@ void erroSemantico(string msg) { cout << "Erro Semantico na linha " << linha << 
 %token TK_MAIS_IGUAL TK_MENOS_IGUAL TK_VEZES_IGUAL TK_DIV_IGUAL
 %token TK_POW TK_MOD
 %token TK_RETURN TK_VOID
+%token TK_VAR
 
 %left TK_OU
 %left TK_E
@@ -117,6 +132,7 @@ void erroSemantico(string msg) { cout << "Erro Semantico na linha " << linha << 
 %left '*' '/' TK_MOD
 %right TK_POW
 %right TK_NAO
+%right UMENOS UMAIS
 
 %%
 
@@ -138,12 +154,31 @@ comando : declaracao ';' { $$.traducao = $1.traducao; }
         | condicional    { $$.traducao = $1.traducao; }
         | iterativo      { $$.traducao = $1.traducao; }
         | TK_PRINT '(' E ')' ';'
-        { $$.traducao = $3.traducao + "\tprintf(" + ($3.tipo == "float" ? "\"%f\\n\"" : "\"%d\\n\"") + ", " + $3.label + ");\n"; }
+        {
+            string formato;
+            string label = $3.label;
+            string trad = $3.traducao;
+            if ($3.tipo == "float") {
+                formato = "\"%f\\n\"";
+            } else if ($3.tipo == "int") {
+                formato = "\"%d\\n\"";
+            } else if ($3.tipo == "bool") {
+                formato = "\"%d\\n\"";
+            } else {
+                erroSemantico("Tipo '" + $3.tipo + "' nao suportado pelo comando 'print'.");
+            }
+            $$.traducao = trad + "\tprintf(" + formato + ", " + label + ");\n";
+        }
         | TK_READ '(' TK_ID ')' ';'
         {
             Variavel v = buscarVariavel($3.label);
             if (v.tipo == "") erroSemantico("Variavel '" + $3.label + "' nao declarada.");
-            $$.traducao = "\tscanf(" + string(v.tipo == "float" ? "\"%f\"" : "\"%d\"") + ", &" + v.label + ");\n";
+            if (v.is_array != 0) erroSemantico("Nao e possivel usar 'read' diretamente em um array; leia para uma variavel escalar e atribua a posicao desejada.");
+            string formato;
+            if (v.tipo == "float") formato = "\"%f\"";
+            else if (v.tipo == "int") formato = "\"%d\"";
+            else erroSemantico("Tipo '" + v.tipo + "' nao suportado pelo comando 'read'.");
+            $$.traducao = "\tscanf(" + formato + ", &" + v.label + ");\n";
         }
         | '{' entrar_escopo lista_comandos '}' sair_escopo { $$.traducao = $3.traducao; }
         | TK_BREAK ';'
@@ -286,6 +321,20 @@ declaracao : tipo TK_ID
     vars_temporarias += "\t" + $1.tipo + " " + realLabel + ";\n";
     $$.traducao = "";
 }
+| tipo TK_ID TK_ATRIB E
+{
+    Variavel v = buscarVariavel($2.label);
+    if (v.tipo != "" && pilhaEscopos.top().find($2.label) != pilhaEscopos.top().end()) {
+        erroSemantico("Variavel '" + $2.label + "' ja declarada neste escopo.");
+    }
+    string realLabel = $2.label + "_" + to_string(linha);
+    declararVariavel($2.label, $1.tipo, realLabel);
+    vars_temporarias += "\t" + $1.tipo + " " + realLabel + ";\n";
+
+    string trad = $4.traducao;
+    string labelDireito = tirarCastSeNecessario($1.tipo, $4.tipo, $4.label, trad);
+    $$.traducao = trad + "\t" + realLabel + " = " + labelDireito + ";\n";
+}
 | tipo TK_ID '[' E ']'
 {
     if ($4.tipo != "int") erroSemantico("Tamanho do vetor deve ser um numero inteiro.");
@@ -312,6 +361,26 @@ declaracao : tipo TK_ID
     trad += "\t" + totalSize + " = " + $4.label + " * " + colSize + ";\n";
     trad += "\t" + varLabel + " = (" + $1.tipo + "*) malloc(" + totalSize + " * sizeof(" + $1.tipo + "));\n";
     $$.traducao = trad;
+}
+| TK_VAR TK_ID TK_ATRIB E
+{
+    Variavel v = buscarVariavel($2.label);
+    if (v.tipo != "" && pilhaEscopos.top().find($2.label) != pilhaEscopos.top().end()) {
+        erroSemantico("Variavel '" + $2.label + "' ja declarada neste escopo.");
+    }
+    string tipoInferido = $4.tipo;
+    string realLabel = $2.label + "_" + to_string(linha);
+    declararVariavel($2.label, tipoInferido, realLabel);
+    vars_temporarias += "\t" + tipoInferido + " " + realLabel + ";\n";
+    $$.traducao = $4.traducao + "\t" + realLabel + " = " + $4.label + ";\n";
+}
+| TK_VAR TK_ID
+{
+    erroSemantico("Variavel '" + $2.label + "' declarada com 'var' precisa ser inicializada (ex: var " + $2.label + " = valor;).");
+}
+| TK_VAR TK_ID '[' E ']'
+{
+    erroSemantico("'var' nao pode ser usado para declarar arrays; especifique o tipo explicitamente (ex: int " + $2.label + "[" + $4.label + "];).");
 }
 ;
 
@@ -362,6 +431,10 @@ atribuicao_composta : TK_ID TK_MAIS_IGUAL E  { $$.traducao = gerarAtribuicaoComp
                     | TK_ID '[' E ']' TK_MENOS_IGUAL E { $$.traducao = gerarAtribuicaoCompostaArray($1.label, $3, "-", $6); }
                     | TK_ID '[' E ']' TK_VEZES_IGUAL E { $$.traducao = gerarAtribuicaoCompostaArray($1.label, $3, "*", $6); }
                     | TK_ID '[' E ']' TK_DIV_IGUAL E   { $$.traducao = gerarAtribuicaoCompostaArray($1.label, $3, "/", $6); }
+                    | TK_ID '[' E ']' '[' E ']' TK_MAIS_IGUAL E  { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "+", $9); }
+                    | TK_ID '[' E ']' '[' E ']' TK_MENOS_IGUAL E { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "-", $9); }
+                    | TK_ID '[' E ']' '[' E ']' TK_VEZES_IGUAL E { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "*", $9); }
+                    | TK_ID '[' E ']' '[' E ']' TK_DIV_IGUAL E   { $$.traducao = gerarAtribuicaoCompostaMatriz($1.label, $3, $6, "/", $9); }
                     ;
 
 condicional : TK_IF '(' E ')' bloco TK_ELSE bloco
@@ -578,6 +651,21 @@ E : E '+' E          { $$.traducao = gerarOperacaoAritmetica("+", $1, $3, $$); }
         $$.label = gentempcode(); vars_temporarias += "\tbool " + $$.label + ";\n"; $$.tipo = "bool";
         $$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n"; 
     }
+  | '-' E %prec UMENOS
+    {
+        if ($2.tipo != "int" && $2.tipo != "float") erroSemantico("Operador unario '-' exige operando numerico (int ou float).");
+        $$.tipo = $2.tipo;
+        $$.label = gentempcode();
+        vars_temporarias += "\t" + $$.tipo + " " + $$.label + ";\n";
+        $$.traducao = $2.traducao + "\t" + $$.label + " = -" + $2.label + ";\n";
+    }
+  | '+' E %prec UMAIS
+    {
+        if ($2.tipo != "int" && $2.tipo != "float") erroSemantico("Operador unario '+' exige operando numerico (int ou float).");
+        $$.tipo = $2.tipo;
+        $$.label = $2.label;
+        $$.traducao = $2.traducao;
+    }
   | '(' E ')'        { $$.label = $2.label; $$.traducao = $2.traducao; $$.tipo = $2.tipo; }
   | TK_NUM           { $$.label = $1.label; $$.traducao = ""; $$.tipo = $1.tipo; }
   | TK_TRUE          { $$.label = "true"; $$.traducao = ""; $$.tipo = "bool"; }
@@ -686,16 +774,22 @@ string gerarOperacaoAritmetica(string op, atributos e1, atributos e3, atributos 
 }
 
 string gerarOperacaoRelacional(string op, atributos e1, atributos e3, atributos &res) {
+    bool algumBool = (e1.tipo == "bool" || e3.tipo == "bool");
+    bool ambosBool = (e1.tipo == "bool" && e3.tipo == "bool");
+    if (algumBool && !ambosBool) {
+        erroSemantico("Nao e possivel comparar o tipo 'bool' com o tipo '" + (e1.tipo == "bool" ? e3.tipo : e1.tipo) + "'.");
+    }
+
     string trad = e1.traducao + e3.traducao;
-    string t_maior = (e1.tipo == "float" || e3.tipo == "float") ? "float" : "int";
-    
+    string t_maior = (e1.tipo == "float" || e3.tipo == "float") ? "float" : (ambosBool ? "bool" : "int");
+
     res.tipo = "bool";
     res.label = gentempcode();
     vars_temporarias += "\tbool " + res.label + ";\n";
-    
-    string l1 = gerarCast(e1.label, e1.tipo, t_maior, trad);
-    string l3 = gerarCast(e3.label, e3.tipo, t_maior, trad);
-    
+
+    string l1 = ambosBool ? e1.label : gerarCast(e1.label, e1.tipo, t_maior, trad);
+    string l3 = ambosBool ? e3.label : gerarCast(e3.label, e3.tipo, t_maior, trad);
+
     return trad + "\t" + res.label + " = " + l1 + " " + op + " " + l3 + ";\n";
 }
 
@@ -739,6 +833,31 @@ string gerarAtribuicaoCompostaArray(string varNome, atributos idx, string op, at
     string trad_op = gerarOperacaoAritmetica(op, e_arr, e, res_op) + e.traducao;
     string labelFinal = tirarCastSeNecessario(v.tipo, res_op.tipo, res_op.label, trad_op);
     return trad_op + "\t" + v.label + "[" + idx.label + "] = " + labelFinal + ";\n";
+}
+
+string gerarAtribuicaoCompostaMatriz(string varNome, atributos idxLinha, atributos idxColuna, string op, atributos e) {
+    Variavel v = buscarVariavel(varNome);
+    if (v.tipo == "") erroSemantico("Variavel '" + varNome + "' nao declarada.");
+    if (v.is_array != 2) erroSemantico("A variavel '" + varNome + "' nao e uma matriz bidimensional.");
+    if (idxLinha.tipo != "int" || idxColuna.tipo != "int") erroSemantico("Os indices de matriz devem ser inteiros.");
+
+    string idxLinear = gentempcode();
+    vars_temporarias += "\tint " + idxLinear + ";\n";
+    string trad_idx = idxLinha.traducao + idxColuna.traducao;
+    trad_idx += "\t" + idxLinear + " = (" + idxLinha.label + " * " + v.col_size + ") + " + idxColuna.label + ";\n";
+
+    string t_val = gentempcode();
+    vars_temporarias += "\t" + v.tipo + " " + t_val + ";\n";
+    string trad_leitura = trad_idx + "\t" + t_val + " = " + v.label + "[" + idxLinear + "];\n";
+    atributos e_mat;
+    e_mat.label = t_val;
+    e_mat.tipo = v.tipo;
+    e_mat.traducao = trad_leitura;
+
+    atributos res_op;
+    string trad_op = gerarOperacaoAritmetica(op, e_mat, e, res_op) + e.traducao;
+    string labelFinal = tirarCastSeNecessario(v.tipo, res_op.tipo, res_op.label, trad_op);
+    return trad_op + "\t" + v.label + "[" + idxLinear + "] = " + labelFinal + ";\n";
 }
 
 string gerarOperacaoMod(atributos e1, atributos e3, atributos &res) {
@@ -841,8 +960,8 @@ void finalizarDeclaracaoFuncao(atributos dadosPendentes, string corpoTraducao) {
 int main() {
     var_temp_qnt = 0;
     int resultado = yyparse();
-    if (resultado == 0) {
+    if (resultado == 0 && !houveErro) {
         cout << codigo_gerado;
     }
-    return resultado;
+    return (resultado != 0 || houveErro) ? 1 : 0;
 }
