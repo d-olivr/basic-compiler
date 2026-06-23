@@ -50,6 +50,18 @@ struct Funcao {
     string labelC; // nome usado no C gerado (igual ao nome FOCA, prefixado para evitar colisao)
 };
 
+struct DadosForeach {
+    string idxLabel;
+    string itemLabel;
+    string arrLabel;
+    string Lcond;
+    string Lstep;
+    string Lend;
+    string Ltrue;
+    string tamTrad;
+    string tamLabel;
+};
+
 // --- VARIÁVEIS GLOBAIS ---
 int var_temp_qnt = 0;
 int label_qnt = 0; 
@@ -63,6 +75,7 @@ stack<string> stack_switch_flag;
 stack<map<string, Variavel>> pilhaEscopos;
 map<string, Funcao> tabelaFuncoes;
 stack<string> pilhaTipoRetornoAtual; // tipo de retorno da função sendo parseada (para checar 'return')
+stack<DadosForeach> stack_foreach; // dados pendentes de foreach entre a mid-rule action e a acao final
 extern int linha;
 
 #define vars_temporarias pilhaVarsTemporarias.back()
@@ -89,7 +102,7 @@ void erroSemantico(string msg) { cout << "Erro Semantico na linha " << linha << 
 %token TK_NUM TK_ID TK_TIPO_INT TK_TIPO_FLOAT TK_TIPO_BOOL TK_TIPO_CHAR TK_TIPO_STRING
 %token TK_TRUE TK_FALSE TK_ATRIB TK_E TK_OU TK_NAO TK_IGUAL TK_DIFERENTE
 %token TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_PRINT TK_READ
-%token TK_IF TK_ELSE TK_WHILE TK_FOR TK_DO
+%token TK_IF TK_ELSE TK_WHILE TK_FOR TK_DO TK_FOREACH
 %token TK_BREAK TK_CONTINUE
 %token TK_SWITCH TK_CASE TK_DEFAULT
 %token TK_MAIS_IGUAL TK_MENOS_IGUAL TK_VEZES_IGUAL TK_DIV_IGUAL
@@ -423,6 +436,61 @@ iterativo : TK_WHILE {
                 string checkCond = ($6.label == "") ? "\tgoto " + Lloop + ";\n" : "\tif (" + $6.label + ") goto " + Lloop + ";\n\tgoto " + Lend + ";\n";
                 
                 $$.traducao = $3.traducao + Lcond + ":;\n" + tradCond + checkCond + Lstep + ":;\n" + $9.traducao + "\tgoto " + Lcond + ";\n" + Lloop + ":;\n" + $11.traducao + "\tgoto " + Lstep + ";\n" + Lend + ":;\n";
+                stack_break.pop();
+                stack_continue.pop();
+            }
+            | TK_FOREACH '(' tipo TK_ID ':' TK_ID ',' E ')'
+            {
+                Variavel v = buscarVariavel($6.label);
+                if (v.tipo == "") erroSemantico("Variavel '" + $6.label + "' nao declarada.");
+                if (v.is_array != 1) erroSemantico("'" + $6.label + "' nao e um arranjo unidimensional, foreach exige um array 1D.");
+                if (v.tipo != $3.tipo) erroSemantico("Tipo do item do foreach (" + $3.tipo + ") incompativel com o tipo do array '" + $6.label + "' (" + v.tipo + ").");
+                if ($8.tipo != "int") erroSemantico("O tamanho informado no foreach deve ser um numero inteiro.");
+
+                DadosForeach d;
+                d.Lcond = genlabel();
+                d.Lstep = genlabel();
+                d.Lend = genlabel();
+                d.Ltrue = genlabel();
+                d.tamTrad = $8.traducao;
+                d.tamLabel = $8.label;
+                d.arrLabel = v.label;
+
+                stack_break.push(d.Lend);
+                stack_continue.push(d.Lstep);
+
+                entrarEscopo();
+
+                d.idxLabel = gentempcode();
+                vars_temporarias += "\tint " + d.idxLabel + ";\n";
+
+                d.itemLabel = $4.label + "_" + to_string(linha);
+                declararVariavel($4.label, $3.tipo, d.itemLabel);
+                vars_temporarias += "\t" + $3.tipo + " " + d.itemLabel + ";\n";
+
+                stack_foreach.push(d);
+            }
+            bloco
+            {
+                DadosForeach d = stack_foreach.top();
+                stack_foreach.pop();
+
+                string trad = d.tamTrad;
+                trad += "\t" + d.idxLabel + " = 0;\n";
+                trad += d.Lcond + ":;\n";
+                trad += "\tif (" + d.idxLabel + " < " + d.tamLabel + ") goto " + d.Ltrue + ";\n";
+                trad += "\tgoto " + d.Lend + ";\n";
+                trad += d.Ltrue + ":;\n";
+                trad += "\t" + d.itemLabel + " = " + d.arrLabel + "[" + d.idxLabel + "];\n";
+                trad += $11.traducao;
+                trad += d.Lstep + ":;\n";
+                trad += "\t" + d.idxLabel + " = " + d.idxLabel + " + 1;\n";
+                trad += "\tgoto " + d.Lcond + ";\n";
+                trad += d.Lend + ":;\n";
+
+                $$.traducao = trad;
+
+                sairEscopo();
                 stack_break.pop();
                 stack_continue.pop();
             }
