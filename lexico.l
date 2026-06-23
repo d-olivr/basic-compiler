@@ -49,6 +49,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "while"     { return TK_WHILE; }
 "for"       { return TK_FOR; }
 "do"        { return TK_DO; }
+"foreach"   { return TK_FOREACH; }
 
 "break"     { return TK_BREAK; }
 "continue"  { return TK_CONTINUE; }
