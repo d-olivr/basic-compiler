@@ -73,6 +73,9 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "*="        { return TK_VEZES_IGUAL; }
 "/="        { return TK_DIV_IGUAL; }
 
+"++"        { return TK_INC; }
+"--"        { return TK_DEC; }
+
 "+"         { return '+'; }
 "-"         { return '-'; }
 "*"         { return '*'; }

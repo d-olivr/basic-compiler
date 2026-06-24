@@ -120,6 +120,7 @@ void erroSemantico(string msg) {
 %token TK_BREAK TK_CONTINUE
 %token TK_SWITCH TK_CASE TK_DEFAULT
 %token TK_MAIS_IGUAL TK_MENOS_IGUAL TK_VEZES_IGUAL TK_DIV_IGUAL
+%token TK_INC TK_DEC
 %token TK_POW TK_MOD
 %token TK_RETURN TK_VOID
 %token TK_VAR
@@ -133,6 +134,7 @@ void erroSemantico(string msg) {
 %right TK_POW
 %right TK_NAO
 %right UMENOS UMAIS
+%left TK_INC TK_DEC
 
 %%
 
@@ -636,6 +638,86 @@ E : E '+' E          { $$.traducao = gerarOperacaoAritmetica("+", $1, $3, $$); }
   | E '-' E          { $$.traducao = gerarOperacaoAritmetica("-", $1, $3, $$); }
   | E '*' E          { $$.traducao = gerarOperacaoAritmetica("*", $1, $3, $$); }
   | E '/' E          { $$.traducao = gerarOperacaoAritmetica("/", $1, $3, $$); }
+  | TK_INC TK_ID     {
+        Variavel v = buscarVariavel($2.label);
+
+        if (v.tipo == "")
+            erroSemantico("Variavel '" + $2.label + "' nao declarada.");
+
+        if (v.tipo != "int" && v.tipo != "float")
+            erroSemantico("Operador ++ exige operando numerico.");
+
+        $$.tipo = v.tipo;
+        $$.label = gentempcode();
+
+        vars_temporarias += "\t" + v.tipo + " " + $$.label + ";\n";
+
+        string um = (v.tipo == "float") ? "1.0" : "1";
+
+        $$.traducao =
+            "\t" + v.label + " = " + v.label + " + " + um + ";\n" +
+            "\t" + $$.label + " = " + v.label + ";\n";
+    }
+   | TK_ID TK_INC    {
+        Variavel v = buscarVariavel($1.label);
+
+        if (v.tipo == "")
+            erroSemantico("Variavel '" + $1.label + "' nao declarada.");
+
+        if (v.tipo != "int" && v.tipo != "float")
+            erroSemantico("Operador ++ exige operando numerico.");
+
+        $$.tipo = v.tipo;
+        $$.label = gentempcode();
+
+        vars_temporarias += "\t" + v.tipo + " " + $$.label + ";\n";
+
+        string um = (v.tipo == "float") ? "1.0" : "1";
+
+        $$.traducao =
+            "\t" + $$.label + " = " + v.label + ";\n" +
+            "\t" + v.label + " = " + v.label + " + " + um + ";\n";
+    }
+  | TK_DEC TK_ID     {
+        Variavel v = buscarVariavel($2.label);
+
+        if (v.tipo == "")
+            erroSemantico("Variavel '" + $2.label + "' nao declarada.");
+
+        if (v.tipo != "int" && v.tipo != "float")
+            erroSemantico("Operador -- exige operando numerico.");
+
+        $$.tipo = v.tipo;
+        $$.label = gentempcode();
+
+        vars_temporarias += "\t" + v.tipo + " " + $$.label + ";\n";
+
+        string um = (v.tipo == "float") ? "1.0" : "1";
+
+        $$.traducao =
+            "\t" + v.label + " = " + v.label + " - " + um + ";\n" +
+            "\t" + $$.label + " = " + v.label + ";\n";
+    }
+  | TK_ID TK_DEC     {
+        Variavel v = buscarVariavel($1.label);
+
+        if (v.tipo == "")
+            erroSemantico("Variavel '" + $1.label + "' nao declarada.");
+
+        if (v.tipo != "int" && v.tipo != "float")
+            erroSemantico("Operador -- exige operando numerico.");
+
+        $$.tipo = v.tipo;
+        $$.label = gentempcode();
+
+        vars_temporarias += "\t" + v.tipo + " " + $$.label + ";\n";
+
+        string um = (v.tipo == "float") ? "1.0" : "1";
+
+        $$.traducao =
+            "\t" + $$.label + " = " + v.label + ";\n" +
+            "\t" + v.label + " = " + v.label + " - " + um + ";\n";
+    }
   | E TK_MOD E       { $$.traducao = gerarOperacaoMod($1, $3, $$); }
   | E TK_POW E       { $$.traducao = gerarOperacaoPotencia($1, $3, $$); }
   | E TK_IGUAL E     { $$.traducao = gerarOperacaoRelacional("==", $1, $3, $$); }
