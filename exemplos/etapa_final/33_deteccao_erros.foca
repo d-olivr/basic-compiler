@@ -1,0 +1,174 @@
+// =====================================================================
+// TESTES DE DETECCAO DE ERROS
+// precisa comentar/descomentar os trechos de codigo para testar 
+// =====================================================================
+
+
+// --- 1) ERRO LEXICO: caractere invalido -----------------------------
+// Esperado: "Erro lexico na linha 2: caractere invalido '@'"
+//           seguido de "Erro Sintatico..." e exit code 1, sem C gerado.
+
+// int x;
+// x = 5 @ 2;
+
+
+// --- 2) ERRO SINTATICO: ponto e virgula faltando ---------------------
+// Esperado: "Erro Sintatico na linha 18: syntax error"
+
+//int y
+//y = 10;
+
+
+// --- 3) ERRO SEMANTICO: variavel nao declarada -----------------------
+// Esperado: "Erro Semantico na linha 1: Variavel 'z' nao declarada."
+
+//z = 10;
+
+
+// --- 4) ERRO SEMANTICO: variavel declarada duas vezes no mesmo escopo
+// Esperado: "Erro Semantico na linha 2: Variavel 'a' ja declarada neste escopo."
+
+//int a;
+//int a;
+
+
+// --- 5) ERRO SEMANTICO: tipos incompativeis em atribuicao ------------
+// Esperado: "Tipos incompativeis. Incompatibilidade entre int e bool"
+
+// int b;
+// bool flag;
+// flag = true;
+// b = flag;
+
+
+// --- 6) ERRO SEMANTICO: indice de vetor nao inteiro -------------------
+// Esperado: "Erro Semantico na linha 3: O indice do vetor deve ser inteiro."
+
+// int v[5];
+// v[0] = 1;
+// v[1.5] = 2;
+
+
+// --- 7) ERRO SEMANTICO: atribuir escalar a array ----------------------
+// Esperado: "Nao e possivel atribuir um valor escalar para um array estruturado."
+
+// int v[5];
+// v = 10;
+
+
+// --- 8) ERRO SEMANTICO: comparar bool com int (regra nova) ------------
+// Esperado: "Nao e possivel comparar o tipo 'bool' com o tipo 'int'."
+
+// int n;
+// bool ok;
+// n = 5;
+// ok = true;
+// print(ok == n);
+
+
+// --- 9) ERRO SEMANTICO: read com tipo nao suportado (regra nova) -----
+// Esperado: "Erro Semantico na linha 2: Tipo 'bool' nao suportado pelo comando 'read'."
+
+// bool ligado;
+// read(ligado);
+
+
+// --- 10) ERRO SEMANTICO: break fora de laco ---------------------------
+// Esperado: "Comando 'break' fora de um laco de repeticao ou switch."
+
+// break;
+
+
+// --- 11) ERRO SEMANTICO: continue fora de laco ------------------------
+// Esperado: "Comando 'continue' fora de um laco de repeticao."
+
+// continue;
+
+
+// --- 12) ERRO SEMANTICO: nivel de break invalido (break N) ------------
+// Esperado: "Nivel de 'break' invalido. Solicitado 2 mas possui 1 escopos."
+
+// while (true) {
+//     break 2;
+// }
+
+
+// --- 13) ERRO SEMANTICO: return fora de funcao ------------------------
+// Esperado: "Comando 'return' usado fora de uma funcao."
+
+// return 5;
+
+
+// --- 14) ERRO SEMANTICO: funcao void retornando valor ------------------
+// Esperado: "Funcao do tipo 'void' nao pode retornar um valor."
+
+// void teste() {
+//     return 1;
+// }
+
+
+// --- 15) ERRO SEMANTICO: funcao tipada sem retornar valor ---------------
+// Esperado: "Funcao com retorno deve usar 'return <expressao>;'."
+
+// int teste() {
+//     return;
+// }
+
+
+// --- 16) ERRO SEMANTICO: funcao chamada nao declarada -------------------
+// Esperado: "Funcao 'naoExiste' nao declarada."
+
+// naoExiste();
+
+
+// --- 17) ERRO SEMANTICO: numero incorreto de argumentos ------------------
+// Esperado: "Numero incorreto de argumentos na chamada de 'soma'."
+
+// int soma(int a, int b) {
+//     return a + b;
+// }
+// int r;
+// r = soma(1, 2, 3);
+
+
+// --- 18) ERRO SEMANTICO: funcao ja declarada -----------------------------
+// Esperado: "Funcao 'soma' ja declarada."
+
+// int soma(int a, int b) {
+//     return a + b;
+// }
+// int soma(int x) {
+//     return x;
+// }
+
+
+// --- 19) ERRO SEMANTICO: foreach com array incompativel ------------------
+// Esperado: "Tipo do item do foreach (float) incompativel com o tipo do array 'v' (int)."
+
+// int v[3];
+// v[0] = 1;
+// foreach (float item : v, 3) {
+//     print(item);
+// }
+
+
+// --- 20) ERRO SEMANTICO: condicao do if nao booleana ----------------------
+// Esperado: "A expressao do 'if' deve ser booleana."
+
+// int n;
+// n = 5;
+// if (n) {
+//     print(1);
+// }
+
+
+// --- 21) ERRO SEMANTICO: var sem inicializador (regra nova) ----------------
+// Esperado: "Variavel 'x' declarada com 'var' precisa ser inicializada (ex: var x = valor;)."
+
+// var x;
+
+
+// --- 22) ERRO SEMANTICO: var com array (regra nova) -------------------------
+// Esperado: "'var' nao pode ser usado para declarar arrays; especifique o tipo explicitamente (ex: int v[5];)."
+
+// var v[5];

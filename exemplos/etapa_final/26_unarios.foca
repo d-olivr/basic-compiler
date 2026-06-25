@@ -1,0 +1,32 @@
+int a = 5;
+int b = -a;
+print(b);
+
+int x = 10;
+int y = +x;
+print(y);
+
+bool flag = true;
+bool inv = !flag;
+print(inv);
+
+bool v = false;
+bool u = !!v;
+print(u);
+
+int d = 3;
+int e = -d + 2;
+print(e);
+
+float f = 3.14;
+float g = -f;
+print(g);
+
+int h = 4;
+int i = -(h + 1);
+print(i);
+
+int j = 5;
+int k = 3;
+bool r = !(j == k);
+print(r);

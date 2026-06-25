@@ -1,0 +1,23 @@
+int i;
+int j;
+
+i = 0;
+while (i < 3) {
+    j = 0;
+    while (j < 3) {
+        print(i);
+        print(j);
+        
+        if (i == 1) {
+            if (j == 1) {
+                // Deve sair de AMBOS os while de uma vez só!
+                break 2; 
+            }
+        }
+        j = j + 1;
+    }
+    i = i + 1;
+}
+
+// O break 2 deve chutar a execução diretamente para cá
+print(999);

@@ -1,0 +1,59 @@
+// =====================================================================
+// TESTES DE INFERENCIA DE TIPO (var)
+// roda direto sem comentar/descomentar nada
+// =====================================================================
+
+// --- inferencia basica: int, float, bool ---
+var a = 10;          // a deve ser inferido como int
+var b = 3.5;         // b deve ser inferido como float
+var c = true;        // c deve ser inferido como bool
+print(a);            // esperado: 10
+print(b);            // esperado: 3.500000
+print(c);            // esperado: 1
+
+// --- inferencia a partir de expressao composta ---
+var soma = a + 5;        // soma de int + int -> int
+var misto = a + b;       // int + float -> float (cast automatico)
+print(soma);              // esperado: 15
+print(misto);              // esperado: 13.500000
+
+// --- inferencia a partir de operacao relacional/logica (bool) ---
+var maior = a > 5;        // comparacao -> bool
+var ambos = (a > 5) && c; // logica -> bool
+print(maior);              // esperado: 1
+print(ambos);              // esperado: 1
+
+// --- inferencia a partir de chamada de funcao ---
+int dobro(int x) {
+    return x * 2;
+}
+var resultadoFuncao = dobro(a); // tipo inferido = tipo de retorno da funcao (int)
+print(resultadoFuncao);          // esperado: 20
+
+// --- var dentro de bloco aninhado (if) ---
+if (a > 0) {
+    var dentroDoIf = a * 100;  // int
+    print(dentroDoIf);          // esperado: 1000
+}
+
+// --- var dentro de laco ---
+var contador = 0;
+while (contador < 3) {
+    var dobroContador = contador * 2; // var redeclarada a cada iteracao do corpo do while
+    print(dobroContador);              // esperado: 0, 2, 4
+    contador = contador + 1;
+}
+
+// --- shadowing: var com mesmo nome em escopo interno tem tipo proprio ---
+var x = 1;          // x externo: int
+print(x);            // esperado: 1
+{
+    var x = 9.99;    // x interno: float, nao conflita com o externo
+    print(x);         // esperado: 9.990000
+}
+print(x);            // esperado: 1 (o x externo nao foi afetado)
+
+// --- var reaproveitada em nova atribuicao (nao redeclaracao) ---
+var y = 5;
+y = y + 1;           // atribuicao normal, NAO precisa do 'var' de novo
+print(y);             // esperado: 6

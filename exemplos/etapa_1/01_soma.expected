@@ -1,10 +1,10 @@
-/*Compilador FOCA*/
-#include <stdio.h>
-int main(void) {
-	t1 = 1;
-	t2 = 2;
-	t3 = t1 + t2;
-	t4 = 3;
-	t5 = t3 + t4;
-	return 0;
-}
+int x = 5;
+int y = -x;
+int z = +10;
+int w = 5 * -2;
+int expressao = -(10 + 5);
+print(x);
+print(y);
+print(z);
+print(w);
+print(expressao);

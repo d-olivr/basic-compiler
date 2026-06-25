@@ -3,7 +3,7 @@ SCANNER_PARAMS := lexico.l
 PARSER := bison
 PARSER_PARAMS := -d --yacc sintatico.y
 CXXFLAGS := -Wno-free-nonheap-object
-FILE := exemplos/01_soma.foca
+FILE := exemplos/etapa_1/01_soma.foca
 
 all: glf translate
 

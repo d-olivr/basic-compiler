@@ -1,2 +1,2 @@
-string saudacao = "Ola mundo";
-print(saudacao);
+int tamanho = -10;
+int vetor_bugado[tamanho];

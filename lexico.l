@@ -1,18 +1,22 @@
 %{
 #include <string>
+#include <vector>
 #include <stdio.h>
 
 struct atributos {
     std::string label;
     std::string traducao;
     std::string tipo;
+    std::vector<std::string> listaLabels;
+    std::vector<std::string> listaTipos;
 };
 
 #define YYSTYPE atributos
 
 #include "y.tab.h"
 
-int linha = 1; 
+int linha = 1;
+extern bool houveErro; // declarada/definida em sintatico.y, usada para sinalizar erro lexico
 %}
 
 %option noyywrap
@@ -25,7 +29,8 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 %%
 
-"\n"        { linha++; } 
+"//"[^\n]* { /* ignora comentários de linha inteira com segurança */ }
+"\n"            { linha++; } 
 [ \t\r\xa0]+    { /* ignora espaços, tabs, quebras do windows e espaços fantasmas */ }
 
 "int"       { return TK_TIPO_INT; } 
@@ -33,6 +38,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "char"      { return TK_TIPO_CHAR; }
 "string"    { return TK_TIPO_STRING; }
 "bool"      { return TK_TIPO_BOOL; }
+"var"       { return TK_VAR; }
 
 "true"      { return TK_TRUE; } 
 "false"     { return TK_FALSE; }
@@ -45,6 +51,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "while"     { return TK_WHILE; }
 "for"       { return TK_FOR; }
 "do"        { return TK_DO; }
+"foreach"   { return TK_FOREACH; }
 
 "break"     { return TK_BREAK; }
 "continue"  { return TK_CONTINUE; }
@@ -53,16 +60,28 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "case"      { return TK_CASE; }
 "default"   { return TK_DEFAULT; }
 
-\'.\'       { yylval.label = yytext; yylval.tipo = "char"; return TK_NUM; } 
-{NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; } 
+"return"    { return TK_RETURN; }
+"void"      { return TK_VOID; }
+
+{NUM_FLOAT} { yylval.label = yytext; yylval.tipo = "float"; return TK_NUM; }
 {NUM_INT}   { yylval.label = yytext; yylval.tipo = "int";   return TK_NUM; } 
 
 {ID}        { yylval.label = yytext; return TK_ID; }
+
+"+="        { return TK_MAIS_IGUAL; }
+"-="        { return TK_MENOS_IGUAL; }
+"*="        { return TK_VEZES_IGUAL; }
+"/="        { return TK_DIV_IGUAL; }
+
+"++"        { return TK_INC; }
+"--"        { return TK_DEC; }
 
 "+"         { return '+'; }
 "-"         { return '-'; }
 "*"         { return '*'; }
 "/"         { return '/'; }
+"**"        { return TK_POW; }
+"%"         { return TK_MOD; }
 
 "&&"        { return TK_E; }
 "||"        { return TK_OU; }
@@ -79,21 +98,18 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 
 "("         { return '('; }
 ")"         { return ')'; }
+"["         { return '['; }
+"]"         { return ']'; }
 "{"         { return '{'; }
 "}"         { return '}'; }
 ":"         { return ':'; }
 ";"         { return ';'; }
-\"[^\"\n]*\"  {
-    int len = strlen(yytext) - 2; // -2 para descontar as aspas
-    if (len > 4500) {
-        fprintf(stderr, "Erro lexico na linha %d: string literal excede 4500 caracteres (%d)\n", linha, len);
-        exit(1);
-    }
-    yylval.label = yytext;
-    yylval.tipo = "string";
-    return TK_STR_LITERAL;
-}
+","         { return ','; }
 
-.           { fprintf(stderr, "Caractere nao reconhecido na linha %d: %s\n", linha, yytext); }
+.           {
+                fprintf(stdout, "Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext);
+                fprintf(stderr, "Erro lexico na linha %d: caractere invalido '%s'\n", linha, yytext);
+                houveErro = true;
+            }
 
 %%
